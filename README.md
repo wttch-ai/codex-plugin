@@ -5,7 +5,7 @@ hooks、策略文件和共享 Python 运行时。
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.5`
+- 当前版本：`0.1.7`
 - 使用范围：私人插件
 
 ## 功能概览
@@ -25,9 +25,8 @@ YAML 只保存 gate 策略。模型名称、API 地址、密钥和超时均由�
 
 ```text
 .
-├── plugin.json                       # Agent Plugins 1.0 主清单
-├── .agents/plugins/marketplace.json  # 本地 marketplace 入口
-├── .codex/config.toml                # 当前项目的插件启用配置
+├── .codex-plugin/plugin.json         # Codex 插件清单，必须保留此路径
+├── .agents/plugins/marketplace.json  # Codex marketplace 入口
 ├── hooks/hooks.json                  # Codex 生命周期 hook
 ├── runtime/run.py                    # 所有 Python skill 共用的运行时入口
 ├── requirements.txt                  # 统一 Python 依赖
@@ -203,11 +202,11 @@ OpenRouter API Key 不属于功能配置，继续通过 `OPENROUTER_API_KEY` 或
 
 ## 本地加载
 
-仓库已包含本地 marketplace 配置。首次使用时执行：
+仓库已包含 `wttch-ai` marketplace 入口。尚未配置时先执行：
 
 ```bash
-codex plugin marketplace add /absolute/path/to/WttchCodexPlugin
-codex plugin add wttch-codex-plugin@wttch-local
+codex plugin marketplace add https://github.com/wttch-ai/codex-plugin.git
+codex plugin add wttch-codex-plugin@wttch-ai
 ```
 
 检查状态：
@@ -220,18 +219,36 @@ codex plugin list
 期望状态为：
 
 ```text
-wttch-codex-plugin@wttch-local  installed, enabled
+wttch-codex-plugin@wttch-ai  installed, enabled
 ```
 
-修改插件后重新执行 `codex plugin add` 刷新本地缓存，并重启桌面端。
-已打开的会话不会热加载新增或修改后的 skill。
+发布修复后重新执行 `codex plugin add` 刷新缓存，并重启桌面端。已打开的
+会话不会热加载新增或修改后的 skill。
+
+### Hook 发现约束
+
+当前 Codex 会优先使用插件根目录的 `plugin.json`。根目录清单会按 Agent
+Plugins 处理，而该格式在 Codex 0.157 中不会加载 plugin hook；因此本仓库
+必须只保留 `.codex-plugin/plugin.json`，并在该清单顶层声明：
+
+```json
+{
+  "hooks": "./hooks/hooks.json"
+}
+```
+
+不要再向仓库根目录添加 `plugin.json`，否则它会覆盖
+`.codex-plugin/plugin.json`，导致 hook 被静默忽略。
+
+Hook 首次被发现时状态为 `untrusted`，还需要在 Codex 的 Hooks 界面中
+审查并信任后才会执行。
 
 ## 版本与发布
 
 发布新版本时：
 
-1. 更新根目录 `plugin.json` 的语义化版本号；
-2. 验证根目录 JSON 清单及所有策略文件；
+1. 更新 `.codex-plugin/plugin.json` 的语义化版本号；
+2. 验证插件 JSON 清单及所有策略文件；
 3. 确认 skills、hooks、默认提示和主页信息没有意外丢失；
 4. 打包单个 `wttch-codex-plugin/` 目录后更新私人插件；
 5. 回读发布结果，并刷新本机 marketplace 安装缓存。
