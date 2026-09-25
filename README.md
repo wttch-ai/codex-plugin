@@ -71,8 +71,7 @@ OpenRouter 审查、决策原因和审计日志。
 
 ```text
 .
-├── plugin.json                       # Agent Plugins 主清单
-├── .codex-plugin/plugin.json         # 旧版兼容清单
+├── .codex-plugin/plugin.json         # Codex 插件清单
 ├── .agents/plugins/marketplace.json  # Codex marketplace 入口
 ├── config/features.json              # 本机功能开关清单
 ├── hooks/hooks.json                  # 生命周期 Hooks
@@ -94,23 +93,21 @@ OpenRouter 审查、决策原因和审计日志。
         └── SKILL.md                  # 功能开关说明
 ```
 
-### `PLUGIN_ROOT` 和两个插件清单
+### `PLUGIN_ROOT` 和插件清单
 
 `PLUGIN_ROOT` 表示插件根目录，也就是上面目录结构中的 `.`。它不是固定的
 本机路径：本地开发时通常是当前仓库目录；插件安装后则是 Codex 为该插件
 分配的安装或缓存目录。Hook 中的 `${PLUGIN_ROOT}` 由 Codex 自动替换，运行时
 代码则通过 `runtime/bootstrap.py` 的位置计算出同一个目录。
 
-插件同时保留两个 `plugin.json`，原因是需要兼容两套插件发现格式：
+插件只保留 `.codex-plugin/plugin.json`，因为当前 Codex 的本地插件发现流程会
+优先使用这份兼容清单。它通过顶层 `hooks` 字段声明 `hooks/hooks.json`，并同时
+描述插件名称、版本、技能目录和界面信息。
 
-- 根目录的 `plugin.json` 是 Agent Plugins 规范的主清单，包含标准 schema、
-  插件版本，以及 `extensions.com.openai.hooks` 等当前发布所需的信息；
-- `.codex-plugin/plugin.json` 是旧版 Codex 插件格式的兼容清单，使用顶层
-  `hooks` 字段，供仍按旧格式发现插件的 Codex Desktop 或 CLI 使用。
-
-两个文件描述的是同一个插件，`name`、版本、描述、作者、界面信息和默认提示
-必须保持同步。新增或修改插件元数据时应同时更新两个文件；不要删除其中任意
-一个，也不要让两个文件的版本号不一致。
+仓库根目录不放 `plugin.json`。在当前 Codex 版本中，根目录清单可能被按另一种
+Agent Plugins 格式解析，导致 `.codex-plugin/plugin.json` 中的 Hook 声明被覆盖，
+最终表现为插件技能可以找到，但 Hook 找不到。发布或修改插件元数据时只更新
+`.codex-plugin/plugin.json`。
 
 ## 环境要求
 
@@ -304,18 +301,14 @@ printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"c
 codex plugin add wttch-codex-plugin@wttch-ai
 ```
 
-Codex 会按清单版本使用对应缓存。发布修复时应同时更新根目录
-`plugin.json` 和 `.codex-plugin/plugin.json` 中的语义化版本号，避免继续使用旧缓存。
+Codex 会按清单版本使用对应缓存。发布修复时应更新
+`.codex-plugin/plugin.json` 中的语义化版本号，避免继续使用旧缓存。
 
 ## Hook 发现兼容性
 
-当前发布使用根目录的 `plugin.json`，并在
-`extensions.com.openai.hooks` 中声明 `hooks/hooks.json`。`.codex-plugin/plugin.json`
-作为旧版 Codex 的兼容清单保留，并与主清单同步名称和版本。
-
-Codex Desktop 和 Codex CLI 可以打包不同的 Codex 内核版本，但共享
-`~/.codex` 配置。发布后如果 Hook 首次出现为 `untrusted`，需要在 Hooks
-界面中审查并信任后才允许执行。
+当前发布使用 `.codex-plugin/plugin.json` 声明 `hooks/hooks.json`。Codex Desktop
+和 Codex CLI 可以打包不同的 Codex 内核版本，但共享 `~/.codex` 配置。发布后
+如果 Hook 首次出现为 `untrusted`，需要在 Hooks 界面中审查并信任后才允许执行。
 
 Hook 首次出现时为 `untrusted`，信任后才允许执行。
 
@@ -350,7 +343,7 @@ description: 说明这个 Skill 做什么，以及应在什么场景使用。
 
 ## 发布新版本
 
-1. 同时更新根目录 `plugin.json` 和 `.codex-plugin/plugin.json` 的语义化版本号；
+1. 更新 `.codex-plugin/plugin.json` 的语义化版本号；
 2. 验证插件 JSON、Hook JSON 和策略文件；
 3. 确认 Skills、Hooks、默认提示和主页信息完整；
 4. 提交并推送 marketplace 指向的仓库；
