@@ -5,7 +5,7 @@ hooks、策略文件和共享 Python 运行时。
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.3`
+- 当前版本：`0.1.4`
 - 使用范围：私人插件
 
 ## 功能概览
