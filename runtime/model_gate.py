@@ -16,29 +16,32 @@ def normalize_model(value: str) -> str:
     return re.sub(r"^gpt(?=\d)", "gpt-", normalized)
 
 
+def block(reason: str) -> dict[str, str]:
+    return {"decision": "block", "reason": reason}
+
+
 def evaluate(event: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any] | None:
     if not settings["model_gate"]:
         return None
     model = event.get("model")
     if not isinstance(model, str) or not model.strip():
-        return {
-            "continue": False,
-            "stopReason": "模型 Gate 无法确定当前模型。",
-            "systemMessage": "由于无法获取当前模型，本轮请求已停止。",
-        }
+        return block("模型 Gate 无法确定当前模型，本轮请求已停止。")
     blocked = {normalize_model(item) for item in settings["blocked_models"]}
     if normalize_model(model) not in blocked:
         return None
     reason = f"模型 Gate 已阻止当前模型：{model}。"
-    return {"continue": False, "stopReason": reason, "systemMessage": reason}
+    return block(reason)
 
 
 def main() -> int:
-    event = json.load(sys.stdin)
-    if not isinstance(event, dict):
-        raise ValueError("hook input must be a JSON object")
-    settings, _ = load_settings()
-    result = evaluate(event, settings)
+    try:
+        event = json.load(sys.stdin)
+        if not isinstance(event, dict):
+            raise ValueError("hook input must be a JSON object")
+        settings, _ = load_settings()
+        result = evaluate(event, settings)
+    except Exception as exc:
+        result = block(f"模型 Gate 运行失败，本轮请求已停止：{exc}")
     if result is not None:
         print(json.dumps(result, ensure_ascii=False))
     return 0

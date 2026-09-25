@@ -5,7 +5,7 @@ Wttch 的私人 Codex 插件，用来集中维护可复用的 Skills、生命周
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.8`
+- 当前版本：`0.1.9`
 - 使用范围：私人插件
 
 ## 快速开始
@@ -60,7 +60,8 @@ YAML 策略决定：
 - `gpt-6-sol`
 - `gpt-6-astra`
 
-模型名匹配不区分大小写，并将空格、下划线和连字符视为等价分隔符。
+模型名匹配不区分大小写，并将空格、下划线和连字符视为等价分隔符。拒绝时
+返回 Codex UserPromptSubmit 支持的 `{"decision":"block","reason":"..."}`。
 
 ### 功能开关
 
