@@ -39,11 +39,10 @@
     {
       "key": "model_gate_action",
       "label": "模型 Gate 处理方式",
-      "description": "模型命中 blocked_models 时的处理方式：block 阻止，ask 提示用户确认，warn 警告后继续。",
+      "description": "模型命中 blocked_models 时的处理方式：block 阻止，warn 警告后继续。",
       "type": "string",
       "choices": [
         "block",
-        "ask",
         "warn"
       ],
       "default": "block"

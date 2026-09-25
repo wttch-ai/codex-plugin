@@ -62,8 +62,17 @@ YAML 策略决定：
 
 模型名匹配不区分大小写，并将空格、下划线和连字符视为等价分隔符。拒绝时
 返回 Codex UserPromptSubmit 支持的 `{"decision":"block","reason":"..."}`。
-处理方式由已注册的 `model_gate_action` 设置控制：`block` 直接阻止，`ask`
-阻止并提示用户确认或切换模型，`warn` 添加警告后继续。默认值为 `block`。
+处理方式由已注册的 `model_gate_action` 设置控制：`block` 直接阻止并提示如何关闭
+模型 Gate，`warn` 添加警告后继续。默认值为 `block`。阻止提示中的关闭命令为：
+
+```bash
+python3 runtime/settings.py set-setting model_gate off
+```
+
+模型 Gate 只能读取 Hook 事件中的当前模型，不能判断 Codex 界面中的推理强度或
+`x1.5 speed`。Hook 事件字段和调试方式见 [Codex Hooks 文档](https://learn.chatgpt.com/docs/hooks)。
+如需查看本机实际收到的事件，可临时让 `UserPromptSubmit` Hook 将标准输入中的
+JSON 写入本地文件；调试完成后应移除该临时 Hook。
 
 ### 功能开关
 
@@ -265,6 +274,8 @@ python3 runtime/settings.py set-setting blocked_models 'gpt-6-luna,gpt-6-sol,gpt
 python3 runtime/settings.py set-setting model_gate_action warn
 python3 runtime/settings.py reset-settings
 ```
+
+`model_gate_action` 支持 `block` 和 `warn`。
 
 插件设置以注册表形式统一维护在 `config/features.json`。每个注册项包含
 `key`、显示名称、说明、类型、默认值，以及可选的 `choices`。`settings.py`

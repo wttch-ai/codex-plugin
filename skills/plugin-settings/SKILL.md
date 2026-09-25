@@ -50,7 +50,6 @@ features.
 `model_gate_action` is a registered plugin setting with these values:
 
 - `block`: block the current prompt;
-- `ask`: block the current prompt and ask the user to confirm or switch models;
 - `warn`: show a warning and continue the current prompt.
 
 Validate both default behavior and a user override. Existing settings files may

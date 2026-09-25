@@ -33,12 +33,11 @@ def warn(reason: str) -> dict[str, Any]:
 def handle_blocked_model(model: str, action: str) -> dict[str, Any]:
     if action == "warn":
         return warn(f"警告：当前模型 {model} 在模型 Gate 禁用清单中，但本轮请求将继续。")
-    if action == "ask":
-        return block(
-            f"当前模型 {model} 在模型 Gate 禁用清单中。"
-            "请确认是否继续，或切换到允许的模型后重新发送请求。"
-        )
-    return block(f"模型 Gate 已阻止当前模型：{model}。")
+    return block(
+        f"模型 Gate 已阻止当前模型：{model}。"
+        "如需关闭此限制，请运行："
+        "python3 runtime/settings.py set-setting model_gate off"
+    )
 
 
 def evaluate(event: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any] | None:
