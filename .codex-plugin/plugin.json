@@ -1,0 +1,27 @@
+{
+  "name": "wttch-codex-plugin",
+  "version": "0.1.2",
+  "description": "A private collection of Wttch's reusable Codex skills, hooks, and shared runtime utilities.",
+  "author": {
+    "name": "Wttch",
+    "url": "https://wttch.com"
+  },
+  "homepage": "https://wttch.com",
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "requires_local_executor": true,
+  "interface": {
+    "displayName": "Wttch Codex Plugin",
+    "shortDescription": "Wttch's private Codex toolbox",
+    "longDescription": "A private, extensible plugin that groups Wttch's reusable skills, lifecycle hooks, gate policies, and shared Python runtime in one package.",
+    "developerName": "Wttch",
+    "websiteURL": "https://wttch.com",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read"],
+    "defaultPrompt": [
+      "Show me the skills available in my Wttch plugin.",
+      "Use the JEV gate skill to explain a policy decision.",
+      "Help me add another reusable skill to this plugin."
+    ]
+  }
+}

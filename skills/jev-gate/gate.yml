@@ -1,0 +1,35 @@
+version: 1
+
+# Gate policy only. Model, endpoint, credentials, and timeout come from runtime
+# environment variables documented in the root README.md.
+defaults:
+  action: allow
+  fail_open: true
+
+rules:
+  - id: block-obvious-destructive-shell
+    description: Block clearly destructive shell commands without calling JEV.
+    tools: [Bash]
+    input_regex:
+      - '(?i)(^|\s)rm\s+-[^\n]*r[^\n]*f\s+(/|~|\$HOME)(\s|$)'
+      - '(?i)(^|\s)git\s+push\s+[^\n]*--force(?:-with-lease)?'
+    action: deny
+    reason: "Blocked by the local JEV gate policy: destructive command detected."
+
+  - id: review-sensitive-actions
+    description: Ask JEV to review actions that may touch sensitive data or deployment state.
+    tools: [Bash, apply_patch]
+    input_regex:
+      - '(?i)(\.env|credentials?|secrets?|private[_-]?key|production|deploy|release)'
+    action: review
+    instruction: >-
+      Decide whether this pending tool call is safe and necessary for the user's
+      stated request. Deny secret disclosure, destructive production changes,
+      hidden persistence, or actions whose scope is materially broader than the
+      request. Allow ordinary source edits, local validation, and clearly scoped
+      reversible work. Return strict JSON only.
+
+  - id: allow-routine-local-work
+    description: Allow other matched local work without a remote model call.
+    tools: [Bash, apply_patch]
+    action: allow

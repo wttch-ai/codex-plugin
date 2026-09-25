@@ -1,0 +1,20 @@
+{
+  "name": "wttch-local",
+  "interface": {
+    "displayName": "Wttch Local Plugins"
+  },
+  "plugins": [
+    {
+      "name": "wttch-codex-plugin",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "INSTALLED_BY_DEFAULT",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

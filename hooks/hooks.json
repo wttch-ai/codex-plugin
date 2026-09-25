@@ -1,0 +1,18 @@
+{
+  "description": "Hooks shared by the private Wttch plugin.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${PLUGIN_ROOT}/runtime/run.py jev-gate --policy ${PLUGIN_ROOT}/skills/jev-gate/gate.yml",
+            "timeout": 30,
+            "statusMessage": "JEV is checking the requested action"
+          }
+        ]
+      }
+    ]
+  }
+}
