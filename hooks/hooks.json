@@ -1,6 +1,18 @@
 {
-  "description": "Hooks shared by the private Wttch plugin.",
+  "description": "Wttch 私人插件共享的 Hook。",
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${PLUGIN_ROOT}/runtime/run.py model-gate",
+            "timeout": 10,
+            "statusMessage": "正在检查当前模型"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash|apply_patch|Edit|Write",
@@ -9,7 +21,7 @@
             "type": "command",
             "command": "python3 ${PLUGIN_ROOT}/runtime/run.py jev-gate --policy ${PLUGIN_ROOT}/skills/jev-gate/gate.yml",
             "timeout": 30,
-            "statusMessage": "JEV is checking the requested action"
+            "statusMessage": "JEV 正在检查请求的操作"
           }
         ]
       }

@@ -1,7 +1,7 @@
 {
   "name": "wttch-local",
   "interface": {
-    "displayName": "Wttch Local Plugins"
+    "displayName": "Wttch 本地插件"
   },
   "plugins": [
     {

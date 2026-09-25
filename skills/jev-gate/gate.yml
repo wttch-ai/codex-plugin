@@ -8,16 +8,16 @@ defaults:
 
 rules:
   - id: block-obvious-destructive-shell
-    description: Block clearly destructive shell commands without calling JEV.
+    description: 无需调用 JEV，直接阻止明显具有破坏性的 Shell 命令。
     tools: [Bash]
     input_regex:
       - '(?i)(^|\s)rm\s+-[^\n]*r[^\n]*f\s+(/|~|\$HOME)(\s|$)'
       - '(?i)(^|\s)git\s+push\s+[^\n]*--force(?:-with-lease)?'
     action: deny
-    reason: "Blocked by the local JEV gate policy: destructive command detected."
+    reason: "本地 JEV Gate 策略已阻止该操作：检测到破坏性命令。"
 
   - id: review-sensitive-actions
-    description: Ask JEV to review actions that may touch sensitive data or deployment state.
+    description: 让 JEV 审查可能涉及敏感数据或部署状态的操作。
     tools: [Bash, apply_patch]
     input_regex:
       - '(?i)(\.env|credentials?|secrets?|private[_-]?key|production|deploy|release)'
@@ -30,6 +30,6 @@ rules:
       reversible work. Return strict JSON only.
 
   - id: allow-routine-local-work
-    description: Allow other matched local work without a remote model call.
+    description: 无需调用远程模型，允许其他匹配的本地操作。
     tools: [Bash, apply_patch]
     action: allow

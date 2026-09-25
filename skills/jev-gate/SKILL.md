@@ -1,6 +1,6 @@
 ---
 name: jev-gate
-description: Explain, validate, test, or extend the JEV OpenRouter-backed tool-call gate and its YAML-only gate policy. Use when the user asks about JEV gate behavior, policy changes, dry runs, or adding protected actions.
+description: 解释、验证、测试或扩展由 OpenRouter 驱动的 JEV 工具调用 Gate 及其纯 YAML 策略。适用于询问 Gate 行为、修改策略、试运行或添加受保护操作的场景。
 ---
 
 # JEV gate

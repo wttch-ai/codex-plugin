@@ -5,7 +5,7 @@ hooks、策略文件和共享 Python 运行时。
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.2`
+- 当前版本：`0.1.3`
 - 使用范围：私人插件
 
 ## 功能概览
@@ -174,6 +174,33 @@ description: 说明这个 skill 做什么，以及应在什么场景使用。
 如果多个 skills 需要共享 Python 代码，应扩展根目录的 `runtime/`，并把
 第三方依赖加入根目录 `requirements.txt`；不要给每个 skill 建立重复的
 虚拟环境。
+
+## 功能开关
+
+`plugin-settings` skill 通过共享 runtime 管理本机功能开关：
+
+```bash
+python3 runtime/run.py list-settings
+python3 runtime/run.py set-setting jev_gate off
+python3 runtime/run.py set-setting audit_log on
+python3 runtime/run.py set-setting model_gate on
+python3 runtime/run.py set-setting blocked_models 'gpt-6-luna,gpt-6-sol,gpt-6-astra'
+python3 runtime/run.py reset-settings
+```
+
+开关清单统一维护在 `config/features.json`。用户覆盖值保存在
+`~/.config/wttch-codex-plugin/settings.json`，不会提交或上传。新增开关时，
+在清单中登记 `key`、名称、说明和默认值，并在对应 runtime 中读取它；
+不要创建一个没有调用方的空开关。
+
+`model_gate` hook 在每次 `UserPromptSubmit` 时检查 Codex 提供的当前模型。
+默认拒绝 `gpt-6-luna`、`gpt-6-sol` 和 `gpt-6-astra`，匹配时会在模型执行
+本轮请求前停止。模型名匹配不区分大小写，并将空格、下划线和连字符视为
+等价分隔符。关闭 `model_gate` 可完全停用该检查；修改 `blocked_models`
+可调整拒绝清单。
+
+OpenRouter API Key 不属于功能配置，继续通过 `OPENROUTER_API_KEY` 或系统
+密钥管理工具提供。
 
 ## 本地加载
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "插件设置"
+  short_description: "管理 Wttch 插件的功能开关"
+  default_prompt: "显示 Wttch 插件当前的功能开关。"

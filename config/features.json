@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "features": [
+    {
+      "key": "jev_gate",
+      "label": "JEV Gate",
+      "description": "启用 PreToolUse Gate。关闭后，匹配的工具调用无需策略评估即可执行。",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "openrouter_review",
+      "label": "OpenRouter 审查",
+      "description": "允许 review 规则调用已配置的 OpenRouter 模型。关闭后，review 操作将按失败关闭策略拒绝。",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "show_decision_reason",
+      "label": "决策原因",
+      "description": "在 Hook 响应中显示详细的 Gate 决策原因。",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "audit_log",
+      "label": "审计日志",
+      "description": "将 Gate 决策追加到本地 JSONL 审计日志，且不记录 API Key。",
+      "type": "boolean",
+      "default": false
+    },
+    {
+      "key": "model_gate",
+      "label": "模型 Gate",
+      "description": "当前模型命中 blocked_models 时，在执行前终止本轮请求。",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "blocked_models",
+      "label": "禁用模型清单",
+      "description": "模型 Gate 拒绝的模型标识。匹配不区分大小写，并将空格、下划线和连字符视为等价分隔符。",
+      "type": "string_list",
+      "default": [
+        "gpt-6-luna",
+        "gpt-6-sol",
+        "gpt-6-astra"
+      ]
+    }
+  ]
+}
