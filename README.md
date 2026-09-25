@@ -5,7 +5,7 @@ hooks、策略文件和共享 Python 运行时。
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.6`
+- 当前版本：`0.1.5`
 - 使用范围：私人插件
 
 ## 功能概览
@@ -26,7 +26,6 @@ YAML 只保存 gate 策略。模型名称、API 地址、密钥和超时均由�
 ```text
 .
 ├── plugin.json                       # Agent Plugins 1.0 主清单
-├── .codex-plugin/plugin.json         # 旧版 Codex 兼容清单
 ├── .agents/plugins/marketplace.json  # 本地 marketplace 入口
 ├── .codex/config.toml                # 当前项目的插件启用配置
 ├── hooks/hooks.json                  # Codex 生命周期 hook
@@ -232,11 +231,10 @@ wttch-codex-plugin@wttch-local  installed, enabled
 发布新版本时：
 
 1. 更新根目录 `plugin.json` 的语义化版本号；
-2. 同步 `.codex-plugin/plugin.json` 中的版本和重复元数据；
-3. 验证两个 JSON 清单及所有策略文件；
-4. 确认 skills、hooks、默认提示和主页信息没有意外丢失；
-5. 打包单个 `wttch-codex-plugin/` 目录后更新私人插件；
-6. 回读发布结果，并刷新本机 marketplace 安装缓存。
+2. 验证根目录 JSON 清单及所有策略文件；
+3. 确认 skills、hooks、默认提示和主页信息没有意外丢失；
+4. 打包单个 `wttch-codex-plugin/` 目录后更新私人插件；
+5. 回读发布结果，并刷新本机 marketplace 安装缓存。
 
 ## 安全说明
 
