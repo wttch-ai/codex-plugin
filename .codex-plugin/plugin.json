@@ -8,6 +8,7 @@
   },
   "homepage": "https://wttch.com",
   "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "Wttch Codex Plugin",
     "shortDescription": "Wttch 的私人 Codex 工具箱",
