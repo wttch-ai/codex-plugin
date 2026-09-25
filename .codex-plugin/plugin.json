@@ -1,6 +1,6 @@
 {
   "name": "wttch-codex-plugin",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Wttch 的私人 Codex 工具集，包含可复用的技能、Hook 和共享运行时。",
   "author": {
     "name": "Wttch",

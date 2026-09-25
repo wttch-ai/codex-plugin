@@ -16,7 +16,7 @@ instead of adding a separate environment or dependency file to this skill.
 3. Validate the policy with:
 
    ```bash
-   python3 "${PLUGIN_ROOT}/runtime/run.py" validate-jev-policy --policy "${PLUGIN_ROOT}/skills/jev-gate/gate.yml"
+   python3 "${PLUGIN_ROOT}/runtime/bootstrap.py" "${PLUGIN_ROOT}/runtime/jev_gate/main.py" validate-jev-policy --policy "${PLUGIN_ROOT}/skills/jev-gate/gate.yml"
    ```
 
 4. Dry-run the hook by piping one `PreToolUse` JSON event into `jev-gate` on the

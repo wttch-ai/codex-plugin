@@ -6,9 +6,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${PLUGIN_ROOT}/runtime/run.py model-gate",
+            "command": "python3 ${PLUGIN_ROOT}/runtime/bootstrap.py ${PLUGIN_ROOT}/runtime/model_gate.py",
             "timeout": 10,
-            "statusMessage": "正在检查当前模型"
+            "statusMessage": "正在准备 Python 环境"
           }
         ]
       }
@@ -19,9 +19,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${PLUGIN_ROOT}/runtime/run.py jev-gate --policy ${PLUGIN_ROOT}/skills/jev-gate/gate.yml",
+            "command": "python3 ${PLUGIN_ROOT}/runtime/bootstrap.py ${PLUGIN_ROOT}/runtime/jev_gate/main.py jev-gate --policy ${PLUGIN_ROOT}/skills/jev-gate/gate.yml",
             "timeout": 30,
-            "statusMessage": "JEV 正在检查请求的操作"
+            "statusMessage": "正在准备 Python 环境"
           }
         ]
       }

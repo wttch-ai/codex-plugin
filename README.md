@@ -1,70 +1,200 @@
 # Wttch Codex Plugin
 
-Wttch 的私人 Codex 插件集合，用来集中维护可复用的 skills、生命周期
-hooks、策略文件和共享 Python 运行时。
+Wttch 的私人 Codex 插件，用来集中维护可复用的 Skills、生命周期 Hooks、
+策略文件和共享 Python 运行时。
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.7`
+- 当前版本：`0.1.8`
 - 使用范围：私人插件
+
+## 快速开始
+
+如果尚未配置 `wttch-ai` marketplace：
+
+```bash
+codex plugin marketplace add https://github.com/wttch-ai/codex-plugin.git
+```
+
+安装插件：
+
+```bash
+codex plugin add wttch-codex-plugin@wttch-ai
+```
+
+检查状态：
+
+```bash
+codex plugin list
+```
+
+期望状态：
+
+```text
+wttch-codex-plugin@wttch-ai  installed, enabled
+```
+
+安装后启动新会话，或在 Codex Desktop 中重启应用。首次发现的 Hook 会显示
+为 `untrusted`，需要在 Hooks 界面中审查并信任后才会执行。
 
 ## 功能概览
 
-当前包含 `jev-gate` skill。它在 Codex 执行受支持的本地工具前运行
-`PreToolUse` hook，并按照 YAML 策略决定：
+### JEV Gate
+
+`jev-gate` 在 Codex 执行受支持的本地工具前运行 `PreToolUse` Hook，并按照
+YAML 策略决定：
 
 - `allow`：直接允许，不调用远程模型；
 - `deny`：直接拒绝，不调用远程模型；
-- `review`：调用 OpenRouter 中指定的模型，由 JEV 对当前工具调用进行
-  上下文审查并返回 `allow` 或 `deny`。
+- `review`：调用 OpenRouter 中指定的模型进行上下文审查，再返回 `allow`
+  或 `deny`。
 
-YAML 只保存 gate 策略。模型名称、API 地址、密钥和超时均由环境变量
-传入，避免把运行时设置或敏感信息混入策略文件。
+策略只保存判断规则。模型名称、API 地址、密钥和超时通过环境变量传入，
+不会写入仓库。
+
+### 模型 Gate
+
+模型 Gate 在每次 `UserPromptSubmit` 时检查当前模型。默认拒绝：
+
+- `gpt-6-luna`
+- `gpt-6-sol`
+- `gpt-6-astra`
+
+模型名匹配不区分大小写，并将空格、下划线和连字符视为等价分隔符。
+
+### 功能开关
+
+`plugin-settings` Skill 可以查看和修改本机设置，包括 JEV Gate、模型 Gate、
+OpenRouter 审查、决策原因和审计日志。
 
 ## 目录结构
 
 ```text
 .
-├── .codex-plugin/plugin.json         # Codex 插件清单，必须保留此路径
+├── plugin.json                       # Agent Plugins 主清单
+├── .codex-plugin/plugin.json         # 旧版兼容清单
 ├── .agents/plugins/marketplace.json  # Codex marketplace 入口
-├── hooks/hooks.json                  # Codex 生命周期 hook
-├── runtime/run.py                    # 所有 Python skill 共用的运行时入口
-├── requirements.txt                  # 统一 Python 依赖
+├── config/features.json              # 本机功能开关清单
+├── hooks/hooks.json                  # 生命周期 Hooks
+├── runtime/bootstrap.py              # 环境检查、创建和依赖同步
+├── runtime/settings.py               # 本机功能开关
+├── runtime/model_gate.py             # 模型 Gate
+├── runtime/jev_gate/                 # JEV Gate 独立模块
+│   ├── main.py                       # JEV Gate 入口
+│   ├── policy.py                     # 策略加载和匹配
+│   ├── review.py                     # OpenRouter 审查
+│   └── gate.py                       # Gate 评估和审计
+├── requirements.txt                  # Python 依赖
 └── skills/
-    ├── README.md                     # 新增 skill 的目录约定
-    └── jev-gate/
-        ├── SKILL.md                  # JEV gate 使用说明
-        └── gate.yml                  # 仅包含 gate 策略
+    ├── README.md                     # Skill 开发约定
+    ├── jev-gate/
+    │   ├── SKILL.md                  # JEV Gate 使用说明
+    │   └── gate.yml                  # Gate 策略
+    └── plugin-settings/
+        └── SKILL.md                  # 功能开关说明
 ```
+
+### `PLUGIN_ROOT` 和两个插件清单
+
+`PLUGIN_ROOT` 表示插件根目录，也就是上面目录结构中的 `.`。它不是固定的
+本机路径：本地开发时通常是当前仓库目录；插件安装后则是 Codex 为该插件
+分配的安装或缓存目录。Hook 中的 `${PLUGIN_ROOT}` 由 Codex 自动替换，运行时
+代码则通过 `runtime/bootstrap.py` 的位置计算出同一个目录。
+
+插件同时保留两个 `plugin.json`，原因是需要兼容两套插件发现格式：
+
+- 根目录的 `plugin.json` 是 Agent Plugins 规范的主清单，包含标准 schema、
+  插件版本，以及 `extensions.com.openai.hooks` 等当前发布所需的信息；
+- `.codex-plugin/plugin.json` 是旧版 Codex 插件格式的兼容清单，使用顶层
+  `hooks` 字段，供仍按旧格式发现插件的 Codex Desktop 或 CLI 使用。
+
+两个文件描述的是同一个插件，`name`、版本、描述、作者、界面信息和默认提示
+必须保持同步。新增或修改插件元数据时应同时更新两个文件；不要删除其中任意
+一个，也不要让两个文件的版本号不一致。
 
 ## 环境要求
 
-- ChatGPT/Codex 桌面端或支持本地插件的 Codex CLI；
+- Codex Desktop 或支持本地插件的 Codex CLI；
 - Python 3.10 或更高版本；
-- 使用 JEV `review` 规则时，需要 OpenRouter API key；
-- 本地 hook 必须由用户审查并信任后才会运行。
+- 使用 OpenRouter `review` 规则时需要 OpenRouter API Key；
+- Hook 必须经过用户审查并信任后才会运行。
 
-## 安装 Python 运行时
+## Python 运行时维护
 
-整个插件只使用一个 Python 环境和一份 `requirements.txt`：
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install -r requirements.txt
-```
-
-当前 hook 命令使用 `python3`。可以在启动 Codex 前激活虚拟环境：
-
-```bash
-source .venv/bin/activate
-```
-
-也可以在创建虚拟环境后，将 `hooks/hooks.json` 中的解释器改成：
+插件使用一个共享的 Python 虚拟环境。环境位于插件根目录下：
 
 ```text
-${PLUGIN_ROOT}/.venv/bin/python
+${PLUGIN_ROOT}/.venv/
 ```
+
+其中：
+
+- macOS/Linux 的解释器是 `${PLUGIN_ROOT}/.venv/bin/python`；
+- Windows 的解释器是 `${PLUGIN_ROOT}/.venv/Scripts/python.exe`；
+- `${PLUGIN_ROOT}/.venv/requirement.md5` 记录当前环境已经安装过的依赖指纹；
+- `${PLUGIN_ROOT}/.venv.bootstrap.lock/` 用于防止多个 Hook 同时初始化环境。
+
+Hook 不会直接运行各个 Gate 脚本，而是先运行 `runtime/bootstrap.py`。Bootstrap
+使用系统里的 Python 3 启动，完成环境检查后再切换到 `.venv` 中的 Python，执行
+指定的 Skill 脚本。
+
+每次 Hook 都会向 Hook 状态输出环境进度，典型状态包括：
+
+```text
+Wttch 环境：正在检查 Python 环境
+Wttch 环境：正在创建 Python 虚拟环境
+Wttch 环境：正在安装或更新 Python 依赖
+Wttch 环境：已就绪，依赖已同步
+```
+
+如果环境没有变化，则最后显示：
+
+```text
+Wttch 环境：已就绪，复用现有虚拟环境
+```
+
+两个 Hook 的界面状态提示也统一为“正在准备 Python 环境”；具体进度由
+Bootstrap 的状态输出提供。
+
+### 首次运行
+
+首次触发任意一个 Hook 时，Bootstrap 按以下顺序执行：
+
+1. 读取并校验根目录的 `requirement.md5`；
+2. 计算 `requirements.txt` 的 MD5，确认两者一致；
+3. 如果 `.venv` 或其中的 Python 解释器不存在，自动执行 `python -m venv .venv`；
+4. 执行 `.venv` 中的 `python -m pip install --requirement requirements.txt`；
+5. 安装成功后，将本次指纹写入 `.venv/requirement.md5`；
+6. 使用 `.venv` 中的 Python 执行对应的 Skill 脚本。
+
+因此，首次 Hook 可能需要额外等待 Python 环境创建和依赖下载完成。
+
+### 插件更新和依赖更新
+
+每次运行时都会比较两个指纹：
+
+```text
+插件内的 requirement.md5
+        与
+.venv/requirement.md5
+```
+
+- 指纹相同：直接复用现有环境，不重新安装依赖；
+- 指纹不同：重新执行 `pip install -r requirements.txt`，成功后更新虚拟环境中的指纹；
+- `.venv` 不存在、解释器丢失或指纹文件丢失：按首次运行流程修复；
+- 安装失败：不写入新指纹，下次运行会再次尝试；
+- 多个 Hook 同时启动：只有持有锁的进程负责初始化，其他进程等待初始化完成。
+
+更新 `requirements.txt` 后，需要同步重新生成插件根目录的 `requirement.md5`：
+
+```bash
+python3 -c "import hashlib, pathlib; print(hashlib.md5(pathlib.Path('requirements.txt').read_bytes()).hexdigest())" > requirement.md5
+```
+
+如果 `requirements.txt` 与 `requirement.md5` 不一致，Bootstrap 会直接报错，避免
+在插件版本不完整时更新环境。`.venv`、`.venv.bootstrap.lock/` 和虚拟环境中的
+`requirement.md5` 都是运行时文件，不应提交到仓库；只有插件根目录的
+`requirement.md5` 应随插件版本提交。
 
 ## 配置 OpenRouter
 
@@ -72,7 +202,7 @@ ${PLUGIN_ROOT}/.venv/bin/python
 
 | 变量 | 是否必需 | 说明 |
 | --- | --- | --- |
-| `OPENROUTER_API_KEY` | review 时必需 | OpenRouter API 密钥，不要写入仓库 |
+| `OPENROUTER_API_KEY` | review 时必需 | OpenRouter API Key，不要写入仓库 |
 | `JEV_OPENROUTER_MODEL` | review 时必需 | OpenRouter 模型 ID，例如 `provider/model-id` |
 | `JEV_OPENROUTER_BASE_URL` | 可选 | 默认 `https://openrouter.ai/api/v1` |
 | `JEV_OPENROUTER_TIMEOUT` | 可选 | 请求超时秒数，默认 `20` |
@@ -86,12 +216,12 @@ export JEV_OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
 export JEV_OPENROUTER_TIMEOUT="20"
 ```
 
-密钥只应放在本机安全的环境配置中。不要把真实密钥写进 `gate.yml`、
-README、shell 脚本或 Git 提交。
+密钥应保存在本机安全的环境配置或密钥管理工具中。不要把真实密钥写入
+`gate.yml`、README、脚本或 Git 提交。
 
-## JEV gate 策略
+## JEV Gate 策略
 
-策略文件位于 `skills/jev-gate/gate.yml`。顶层结构如下：
+策略文件位于 `skills/jev-gate/gate.yml`。示例：
 
 ```yaml
 version: 1
@@ -110,11 +240,11 @@ rules:
       判断此工具调用是否安全且符合用户请求，只返回严格 JSON。
 ```
 
-规则按从上到下的顺序匹配，命中第一条后停止：
+规则从上到下匹配，命中第一条后停止。建议按以下顺序排列：
 
-1. 把明确、无条件禁止的操作设为 `deny`；
-2. 把需要理解用户意图和上下文的操作设为 `review`；
-3. 把确定安全的操作设为 `allow`；
+1. 明确且无条件禁止的操作设为 `deny`；
+2. 需要理解用户意图和上下文的操作设为 `review`；
+3. 确定安全的操作设为 `allow`；
 4. 具体规则放在宽泛规则之前。
 
 `defaults.fail_open` 控制 JEV 无法访问时的行为：
@@ -122,12 +252,34 @@ rules:
 - `true`：记录降级原因并允许工具调用；
 - `false`：拒绝工具调用，直到 JEV 恢复可用。
 
+## 功能开关
+
+`plugin-settings` Skill 通过共享 runtime 管理本机设置：
+
+```bash
+python3 runtime/settings.py list-settings
+python3 runtime/settings.py set-setting jev_gate off
+python3 runtime/settings.py set-setting audit_log on
+python3 runtime/settings.py set-setting model_gate on
+python3 runtime/settings.py set-setting blocked_models 'gpt-6-luna,gpt-6-sol,gpt-6-astra'
+python3 runtime/settings.py reset-settings
+```
+
+开关定义统一维护在 `config/features.json`。用户覆盖值保存在：
+
+```text
+~/.config/wttch-codex-plugin/settings.json
+```
+
+新增开关时，应同时登记 `key`、名称、说明和默认值，并在对应 runtime 中
+读取它；不要创建没有调用方的空开关。
+
 ## 验证和测试
 
 检查 YAML 结构和正则表达式：
 
 ```bash
-python3 runtime/run.py validate-jev-policy \
+python3 runtime/bootstrap.py runtime/jev_gate/main.py validate-jev-policy \
   --policy skills/jev-gate/gate.yml
 ```
 
@@ -135,16 +287,39 @@ python3 runtime/run.py validate-jev-policy \
 
 ```bash
 printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"/workspace"}' \
-  | python3 runtime/run.py jev-gate \
+  | python3 runtime/bootstrap.py runtime/jev_gate/main.py jev-gate \
       --policy skills/jev-gate/gate.yml
 ```
 
 预期结果中的 `permissionDecision` 应为 `deny`。
 
 测试 `review` 规则前，请确认 `OPENROUTER_API_KEY` 和
-`JEV_OPENROUTER_MODEL` 已设置。运行时不会输出 API key。
+`JEV_OPENROUTER_MODEL` 已设置。运行时不会输出 API Key。
 
-## 添加自己的 skill
+## 更新插件
+
+发布新版本后重新安装：
+
+```bash
+codex plugin add wttch-codex-plugin@wttch-ai
+```
+
+Codex 会按清单版本使用对应缓存。发布修复时应同时更新根目录
+`plugin.json` 和 `.codex-plugin/plugin.json` 中的语义化版本号，避免继续使用旧缓存。
+
+## Hook 发现兼容性
+
+当前发布使用根目录的 `plugin.json`，并在
+`extensions.com.openai.hooks` 中声明 `hooks/hooks.json`。`.codex-plugin/plugin.json`
+作为旧版 Codex 的兼容清单保留，并与主清单同步名称和版本。
+
+Codex Desktop 和 Codex CLI 可以打包不同的 Codex 内核版本，但共享
+`~/.codex` 配置。发布后如果 Hook 首次出现为 `untrusted`，需要在 Hooks
+界面中审查并信任后才允许执行。
+
+Hook 首次出现时为 `untrusted`，信任后才允许执行。
+
+## 添加自己的 Skill
 
 在 `skills/` 下为每个工作流创建独立目录：
 
@@ -152,7 +327,7 @@ printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"c
 skills/my-skill/
 ├── SKILL.md
 ├── references/     # 可选
-├── scripts/        # 可选，skill 专用脚本
+├── scripts/        # 可选，Skill 专用脚本
 └── assets/         # 可选
 ```
 
@@ -161,105 +336,34 @@ skills/my-skill/
 ```markdown
 ---
 name: my-skill
-description: 说明这个 skill 做什么，以及应在什么场景使用。
+description: 说明这个 Skill 做什么，以及应在什么场景使用。
 ---
 
-# My skill
+# My Skill
 
 在这里编写清晰、可执行的工作流程。
 ```
 
-如果多个 skills 需要共享 Python 代码，应扩展根目录的 `runtime/`，并把
-第三方依赖加入根目录 `requirements.txt`；不要给每个 skill 建立重复的
+如果多个 Skills 需要共享 Python 代码，应扩展根目录的 `runtime/`，并把
+第三方依赖加入根目录 `requirements.txt`；不要为每个 Skill 建立重复的
 虚拟环境。
 
-## 功能开关
+## 发布新版本
 
-`plugin-settings` skill 通过共享 runtime 管理本机功能开关：
-
-```bash
-python3 runtime/run.py list-settings
-python3 runtime/run.py set-setting jev_gate off
-python3 runtime/run.py set-setting audit_log on
-python3 runtime/run.py set-setting model_gate on
-python3 runtime/run.py set-setting blocked_models 'gpt-6-luna,gpt-6-sol,gpt-6-astra'
-python3 runtime/run.py reset-settings
-```
-
-开关清单统一维护在 `config/features.json`。用户覆盖值保存在
-`~/.config/wttch-codex-plugin/settings.json`，不会提交或上传。新增开关时，
-在清单中登记 `key`、名称、说明和默认值，并在对应 runtime 中读取它；
-不要创建一个没有调用方的空开关。
-
-`model_gate` hook 在每次 `UserPromptSubmit` 时检查 Codex 提供的当前模型。
-默认拒绝 `gpt-6-luna`、`gpt-6-sol` 和 `gpt-6-astra`，匹配时会在模型执行
-本轮请求前停止。模型名匹配不区分大小写，并将空格、下划线和连字符视为
-等价分隔符。关闭 `model_gate` 可完全停用该检查；修改 `blocked_models`
-可调整拒绝清单。
-
-OpenRouter API Key 不属于功能配置，继续通过 `OPENROUTER_API_KEY` 或系统
-密钥管理工具提供。
-
-## 本地加载
-
-仓库已包含 `wttch-ai` marketplace 入口。尚未配置时先执行：
-
-```bash
-codex plugin marketplace add https://github.com/wttch-ai/codex-plugin.git
-codex plugin add wttch-codex-plugin@wttch-ai
-```
-
-检查状态：
-
-```bash
-codex plugin marketplace list
-codex plugin list
-```
-
-期望状态为：
-
-```text
-wttch-codex-plugin@wttch-ai  installed, enabled
-```
-
-发布修复后重新执行 `codex plugin add` 刷新缓存，并重启桌面端。已打开的
-会话不会热加载新增或修改后的 skill。
-
-### Hook 发现约束
-
-当前 Codex 会优先使用插件根目录的 `plugin.json`。根目录清单会按 Agent
-Plugins 处理，而该格式在 Codex 0.157 中不会加载 plugin hook；因此本仓库
-必须只保留 `.codex-plugin/plugin.json`，并在该清单顶层声明：
-
-```json
-{
-  "hooks": "./hooks/hooks.json"
-}
-```
-
-不要再向仓库根目录添加 `plugin.json`，否则它会覆盖
-`.codex-plugin/plugin.json`，导致 hook 被静默忽略。
-
-Hook 首次被发现时状态为 `untrusted`，还需要在 Codex 的 Hooks 界面中
-审查并信任后才会执行。
-
-## 版本与发布
-
-发布新版本时：
-
-1. 更新 `.codex-plugin/plugin.json` 的语义化版本号；
-2. 验证插件 JSON 清单及所有策略文件；
-3. 确认 skills、hooks、默认提示和主页信息没有意外丢失；
-4. 打包单个 `wttch-codex-plugin/` 目录后更新私人插件；
-5. 回读发布结果，并刷新本机 marketplace 安装缓存。
+1. 同时更新根目录 `plugin.json` 和 `.codex-plugin/plugin.json` 的语义化版本号；
+2. 验证插件 JSON、Hook JSON 和策略文件；
+3. 确认 Skills、Hooks、默认提示和主页信息完整；
+4. 提交并推送 marketplace 指向的仓库；
+5. 重新安装插件并检查状态；
+6. 在 Desktop 或 CLI 中使用新会话验证 Hook。
 
 ## 安全说明
 
-- 不提交 API key、token、cookie、私钥或 `.env` 文件；
-- hook 在执行工具前获得工具名称与输入，只发送命中 `review` 规则的内容
-  给 OpenRouter；
+- 不提交 API Key、Token、Cookie、私钥或 `.env` 文件；
+- Hook 在执行工具前获得工具名称和输入，只将命中 `review` 规则的内容发送给
+  OpenRouter；
 - 静态 `allow` 和 `deny` 规则不会调用远程模型；
-- 修改 gate 策略或 hook 后，应重新审查其权限与失败行为；
+- 修改 Gate 策略或 Hook 后，应重新审查其权限和失败行为；
 - 对生产环境建议使用 `fail_open: false`，并先在隔离环境测试。
 
 ## License

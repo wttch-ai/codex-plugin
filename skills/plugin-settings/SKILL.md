@@ -5,24 +5,24 @@ description: 查看、启用、关闭或重置 Wttch Codex 插件的功能设置
 
 # Plugin Settings
 
-Manage runtime feature switches through the shared plugin runtime. Keep gate matching
+Manage runtime feature switches through `runtime/settings.py`. Keep gate matching
 policy in `skills/jev-gate/gate.yml`; do not put feature switches or API keys there.
 
 ## Manage settings
 
-Run these commands from the plugin root, or replace `runtime/run.py` with its
+Run these commands from the plugin root, or replace `runtime/settings.py` with its
 `${PLUGIN_ROOT}` path:
 
 ```bash
-python3 runtime/run.py list-settings
-python3 runtime/run.py set-setting <key> <on|off>
-python3 runtime/run.py reset-settings
+python3 runtime/settings.py list-settings
+python3 runtime/settings.py set-setting <key> <on|off>
+python3 runtime/settings.py reset-settings
 ```
 
 List settings accept their documented type. For example:
 
 ```bash
-python3 runtime/run.py set-setting blocked_models 'gpt-6-luna,gpt-6-sol,gpt-6-astra'
+python3 runtime/settings.py set-setting blocked_models 'gpt-6-luna,gpt-6-sol,gpt-6-astra'
 ```
 
 Before changing a setting, list the catalog and resolve the user's wording to an

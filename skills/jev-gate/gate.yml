@@ -1,7 +1,7 @@
 version: 1
 
-# Gate policy only. Model, endpoint, credentials, and timeout come from runtime
-# environment variables documented in the root README.md.
+# 这里只保存 Gate 策略。模型、地址、凭据和超时来自根目录 README.md 中说明的
+# 运行时环境变量。
 defaults:
   action: deny
   fail_open: true
