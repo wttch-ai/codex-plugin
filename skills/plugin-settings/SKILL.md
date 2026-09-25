@@ -23,6 +23,7 @@ List settings accept their documented type. For example:
 
 ```bash
 python3 runtime/settings.py set-setting blocked_models 'gpt-6-luna,gpt-6-sol,gpt-6-astra'
+python3 runtime/settings.py set-setting model_gate_action warn
 ```
 
 Before changing a setting, list the catalog and resolve the user's wording to an
@@ -39,10 +40,18 @@ value.
 
 `config/features.json` is the authoritative switch catalog. Add one entry with a
 unique snake_case `key`, a user-facing `label`, a precise `description`, supported
-`type`, and matching `default`. The current supported types are `boolean` and
-`string_list`. Then update the runtime component that consumes the setting and add
-a behavioral test. Catalog-only settings that nothing reads are not complete
+`type`, and matching `default`. The current supported types are `boolean`,
+`string`, and `string_list`. String settings may declare `choices`; the settings
+runtime validates them and includes the registered setting in `list-settings`
+automatically. Then update the runtime component that consumes the setting and
+add a behavioral test. Catalog-only settings that nothing reads are not complete
 features.
+
+`model_gate_action` is a registered plugin setting with these values:
+
+- `block`: block the current prompt;
+- `ask`: block the current prompt and ask the user to confirm or switch models;
+- `warn`: show a warning and continue the current prompt.
 
 Validate both default behavior and a user override. Existing settings files may
 omit new keys; the catalog default must apply automatically.

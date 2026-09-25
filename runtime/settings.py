@@ -36,6 +36,9 @@ def valid_default(entry: dict[str, Any]) -> bool:
         return isinstance(default, bool)
     if feature_type == "string_list":
         return isinstance(default, list) and all(isinstance(item, str) for item in default)
+    if feature_type == "string":
+        choices = entry.get("choices", [])
+        return isinstance(default, str) and (not choices or default in choices)
     return False
 
 
@@ -74,6 +77,9 @@ def valid_value(entry: dict[str, Any], value: Any) -> bool:
         return isinstance(value, bool)
     if entry["type"] == "string_list":
         return isinstance(value, list) and all(isinstance(item, str) for item in value)
+    if entry["type"] == "string":
+        choices = entry.get("choices", [])
+        return isinstance(value, str) and (not choices or value in choices)
     return False
 
 
@@ -126,6 +132,12 @@ def parse_setting_value(entry: dict[str, Any], value: str) -> Any:
                 raise ValueError("value must be a JSON array of strings")
             return parsed
         return [item.strip() for item in stripped.split(",") if item.strip()]
+    if entry["type"] == "string":
+        stripped = value.strip().lower()
+        if not valid_value(entry, stripped):
+            choices = ", ".join(entry.get("choices", []))
+            raise ValueError(f"value must be one of: {choices}")
+        return stripped
     raise ValueError(f"unsupported setting type: {entry['type']}")
 
 

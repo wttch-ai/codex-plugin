@@ -5,7 +5,7 @@ Wttch 的私人 Codex 插件，用来集中维护可复用的 Skills、生命周
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.9`
+- 当前版本：`0.1.10`
 - 使用范围：私人插件
 
 ## 快速开始
@@ -62,6 +62,8 @@ YAML 策略决定：
 
 模型名匹配不区分大小写，并将空格、下划线和连字符视为等价分隔符。拒绝时
 返回 Codex UserPromptSubmit 支持的 `{"decision":"block","reason":"..."}`。
+处理方式由已注册的 `model_gate_action` 设置控制：`block` 直接阻止，`ask`
+阻止并提示用户确认或切换模型，`warn` 添加警告后继续。默认值为 `block`。
 
 ### 功能开关
 
@@ -260,10 +262,14 @@ python3 runtime/settings.py set-setting jev_gate off
 python3 runtime/settings.py set-setting audit_log on
 python3 runtime/settings.py set-setting model_gate on
 python3 runtime/settings.py set-setting blocked_models 'gpt-6-luna,gpt-6-sol,gpt-6-astra'
+python3 runtime/settings.py set-setting model_gate_action warn
 python3 runtime/settings.py reset-settings
 ```
 
-开关定义统一维护在 `config/features.json`。用户覆盖值保存在：
+插件设置以注册表形式统一维护在 `config/features.json`。每个注册项包含
+`key`、显示名称、说明、类型、默认值，以及可选的 `choices`。`settings.py`
+会自动校验注册项，并让 `list-settings` 和 `plugin-settings` Skill 发现和显示
+所有已注册设置。用户覆盖值保存在：
 
 ```text
 ~/.config/wttch-codex-plugin/settings.json

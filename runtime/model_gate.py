@@ -20,6 +20,27 @@ def block(reason: str) -> dict[str, str]:
     return {"decision": "block", "reason": reason}
 
 
+def warn(reason: str) -> dict[str, Any]:
+    return {
+        "systemMessage": reason,
+        "hookSpecificOutput": {
+            "hookEventName": "UserPromptSubmit",
+            "additionalContext": reason,
+        },
+    }
+
+
+def handle_blocked_model(model: str, action: str) -> dict[str, Any]:
+    if action == "warn":
+        return warn(f"警告：当前模型 {model} 在模型 Gate 禁用清单中，但本轮请求将继续。")
+    if action == "ask":
+        return block(
+            f"当前模型 {model} 在模型 Gate 禁用清单中。"
+            "请确认是否继续，或切换到允许的模型后重新发送请求。"
+        )
+    return block(f"模型 Gate 已阻止当前模型：{model}。")
+
+
 def evaluate(event: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any] | None:
     if not settings["model_gate"]:
         return None
@@ -29,8 +50,7 @@ def evaluate(event: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any] 
     blocked = {normalize_model(item) for item in settings["blocked_models"]}
     if normalize_model(model) not in blocked:
         return None
-    reason = f"模型 Gate 已阻止当前模型：{model}。"
-    return block(reason)
+    return handle_blocked_model(model, settings["model_gate_action"])
 
 
 def main() -> int:
