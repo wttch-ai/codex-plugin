@@ -3,7 +3,7 @@ version: 1
 # Gate policy only. Model, endpoint, credentials, and timeout come from runtime
 # environment variables documented in the root README.md.
 defaults:
-  action: allow
+  action: deny
   fail_open: true
 
 rules:
