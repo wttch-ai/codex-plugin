@@ -11,14 +11,16 @@ import subprocess
 import sys
 import time
 
+# Bootstrap 是所有 Hook 的共同入口，因此在这里记录环境准备成功或失败。
+from operation_log import record as record_operation
+from paths import (
+    BOOTSTRAP_LOCK_PATH, PLUGIN_ROOT, REQUIREMENTS_DIGEST_PATH, REQUIREMENTS_PATH,
+    RUNTIME_ROOT, VENV_DIGEST_PATH, VENV_PATH,
+)
 
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
-RUNTIME_ROOT = PLUGIN_ROOT / "runtime"
-REQUIREMENTS_PATH = PLUGIN_ROOT / "requirements.txt"
-REQUIREMENTS_DIGEST_PATH = PLUGIN_ROOT / "requirement.md5"
-VENV_PATH = PLUGIN_ROOT / ".venv"
-VENV_DIGEST_PATH = VENV_PATH / "requirement.md5"
-LOCK_PATH = VENV_PATH.with_name(".venv.bootstrap.lock")
+
+# 保留本地别名，下面的锁逻辑语义更清晰，同时实际路径仍由 paths.py 统一管理。
+LOCK_PATH = BOOTSTRAP_LOCK_PATH
 LOCK_TIMEOUT_SECONDS = 180
 STALE_LOCK_SECONDS = 900
 
@@ -133,6 +135,25 @@ def ensure_environment(expected_digest: str) -> Path:
     return interpreter
 
 
+def ready_environment(expected_digest: str) -> Path | None:
+    """快速检查环境是否可直接复用。
+
+    Hook 高频触发时，解释器和依赖指纹都没有变化就不需要再次获取初始化锁。
+    指纹只在依赖安装成功后写入，因此发现指纹一致时可以安全地跳过同步流程；
+    任一文件缺失或内容不一致则返回 ``None``，交给完整准备流程修复。
+    """
+    interpreter = python_in_venv()
+    if not interpreter.is_file() or not VENV_DIGEST_PATH.is_file():
+        return None
+    try:
+        installed_digest = VENV_DIGEST_PATH.read_text(encoding="utf-8").strip().lower()
+    except OSError:
+        return None
+    if installed_digest != expected_digest:
+        return None
+    return interpreter
+
+
 def report_preparation_failure(hook_event: str | None) -> None:
     """按 Hook 事件协议报告环境准备失败，并保持 Gate 的失败关闭行为。"""
     reason = "Wttch 环境自动准备失败，本次请求已停止；下次请求会自动重试。"
@@ -165,15 +186,23 @@ def main() -> int:
     try:
         print("Wttch 环境：正在检查 Python 环境", file=sys.stderr, flush=True)
         expected_digest = declared_digest()
-        acquire_lock()
-        try:
-            interpreter = ensure_environment(expected_digest)
-        finally:
-            release_lock()
+        # 大多数 Hook 都走这里：依赖未变化时直接复用，避免每次都创建/检查锁目录。
+        interpreter = ready_environment(expected_digest)
+        if interpreter is None:
+            acquire_lock()
+            try:
+                interpreter = ensure_environment(expected_digest)
+            finally:
+                release_lock()
     except Exception:
+        # 只记录 Hook 类型，不记录事件正文，避免把用户输入写入日志。
+        record_operation("environment.prepare", result="error", details={"hook_event": hook_event})
         # 环境无法准备时，不能让模型 Gate 静默失效或让用户手动修复环境。
         report_preparation_failure(hook_event)
         return 0
+
+    # 环境已准备好后再记成功事件，确保日志表示目标运行时确实可用。
+    record_operation("environment.prepare", details={"hook_event": hook_event})
 
     module = ".".join(relative_runtime.parts)
     environment = os.environ.copy()

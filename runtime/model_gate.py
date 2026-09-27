@@ -9,6 +9,8 @@ import sys
 from typing import Any
 
 from settings import load_settings
+# 模型 Gate 记录最终决策，便于查询被阻止、警告或放行的请求数量。
+from operation_log import record as record_operation
 
 
 def normalize_model(value: str) -> str:
@@ -78,6 +80,11 @@ def main() -> int:
     except Exception as exc:
         # Hook 自身异常也必须阻止请求，避免配置或解析错误失去保护作用。
         result = block(f"模型 Gate 运行失败，本轮请求已停止：{exc}")
+        # 异常分支统一记为 error，但仍输出原有失败关闭响应。
+        record_operation("model_gate", result="error")
+    else:
+        # result 为 None 代表没有命中限制，在日志中明确记为 allow。
+        record_operation("model_gate", details={"decision": result.get("decision", "allow") if result else "allow"})
     if result is not None:
         print(json.dumps(result, ensure_ascii=False))
     return 0

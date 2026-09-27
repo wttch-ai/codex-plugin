@@ -17,6 +17,7 @@ Run these commands from the plugin root, or replace `runtime/settings.py` with i
 python3 runtime/settings.py list-settings
 python3 runtime/settings.py set-setting <key> <on|off>
 python3 runtime/settings.py reset-settings
+python3 runtime/settings.py query-log
 ```
 
 List settings accept their documented type. For example:
@@ -35,6 +36,20 @@ override that path for testing.
 Never write `OPENROUTER_API_KEY` into the settings file, command arguments,
 output, or logs. The working directory's local Git-ignored `wttch-config.yml`
 may hold `openrouter.api_key`; an environment variable still takes precedence.
+
+## Query operation logs
+
+All plugin Hook operations and settings changes append safe metadata to a local
+JSONL file. Query the most recent entries with:
+
+```bash
+python3 runtime/settings.py query-log --limit 100
+python3 runtime/settings.py query-log --operation jev_gate --result error
+```
+
+The default file is `~/.local/state/wttch-codex-plugin/operations.jsonl` and can
+be overridden with `WTTCH_PLUGIN_OPERATION_LOG`. Tool input, prompt content,
+configuration values, and API keys are not written to this log.
 
 ## Add a switch
 

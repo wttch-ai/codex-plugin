@@ -10,6 +10,8 @@ from typing import Any
 from .policy import matching_rule
 from .review import review
 from settings import audit_log_path, load_settings
+# 统一日志与可选的旧审计日志并行写入，兼容已有 audit_log 设置。
+from operation_log import record as record_operation
 
 
 def deny(reason: str) -> dict[str, Any]:
@@ -107,4 +109,10 @@ def evaluate(policy: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
     if settings["audit_log"]:
         # 审计仅记录决策元数据，不保存可能包含敏感数据的完整工具参数。
         record_audit(event, rule, result)
+    # 仅保存工具名、规则和决策，不保存完整工具参数或远程审查上下文。
+    record_operation("jev_gate", details={
+        "tool_name": event.get("tool_name"),
+        "rule_id": rule.get("id", "unknown"),
+        "decision": result["hookSpecificOutput"].get("permissionDecision"),
+    })
     return result

@@ -77,7 +77,8 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 ### 功能开关
 
 `plugin-settings` Skill 可以查看和修改本机设置，包括 JEV Gate、模型 Gate、
-OpenRouter 审查、决策原因和审计日志。
+OpenRouter 审查、决策原因和审计日志。插件操作会自动记录到本机 JSONL 日志，
+可用 `python3 runtime/settings.py query-log` 查询，并可按操作类型和结果筛选。
 
 ### 插件信息
 
@@ -95,6 +96,7 @@ OpenRouter 审查、决策原因和审计日志。
 ├── runtime/bootstrap.py              # 环境检查、创建和依赖同步
 ├── runtime/plugin_info.py             # 不含值的本机配置索引
 ├── runtime/settings.py               # 本机功能开关
+├── runtime/operation_log.py          # 统一操作日志和查询
 ├── runtime/wttch_config.py            # Wttch 工作目录配置读取
 ├── runtime/model_gate.py             # 模型 Gate
 ├── runtime/jev_gate/                 # JEV Gate 独立模块

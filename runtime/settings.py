@@ -10,9 +10,10 @@ import re
 from pathlib import Path
 from typing import Any
 
-
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
-FEATURE_CATALOG_PATH = PLUGIN_ROOT / "config" / "features.json"
+# 设置命令本身也纳入统一日志，查询命令除外，避免查询一次就产生新的查询记录。
+from operation_log import log_path, query as query_operations, record as record_operation
+# 所有静态路径来自同一模块；环境变量覆盖仍由各自的路径函数处理。
+from paths import DEFAULT_AUDIT_LOG_PATH, DEFAULT_SETTINGS_PATH, FEATURE_CATALOG_PATH
 
 
 def settings_path() -> Path:
@@ -20,7 +21,7 @@ def settings_path() -> Path:
     override = os.environ.get("WTTCH_PLUGIN_SETTINGS_FILE", "").strip()
     if override:
         return Path(override).expanduser()
-    return Path.home() / ".config" / "wttch-codex-plugin" / "settings.json"
+    return DEFAULT_SETTINGS_PATH
 
 
 def audit_log_path() -> Path:
@@ -28,7 +29,7 @@ def audit_log_path() -> Path:
     override = os.environ.get("WTTCH_PLUGIN_AUDIT_LOG", "").strip()
     if override:
         return Path(override).expanduser()
-    return Path.home() / ".local" / "state" / "wttch-codex-plugin" / "audit.jsonl"
+    return DEFAULT_AUDIT_LOG_PATH
 
 
 def valid_default(entry: dict[str, Any]) -> bool:
@@ -171,10 +172,17 @@ def main(argv: list[str]) -> int:
     set_parser.add_argument("key")
     set_parser.add_argument("value")
     subparsers.add_parser("reset-settings")
+    # 独立的查询子命令只读日志，不改变设置文件或 Gate 行为。
+    query_parser = subparsers.add_parser("query-log")
+    query_parser.add_argument("--operation")
+    query_parser.add_argument("--result")
+    query_parser.add_argument("--limit", type=int, default=100)
     args = parser.parse_args(argv)
 
     if args.command == "list-settings":
         values, catalog = load_settings()
+        # 只记录“列出设置”这一操作，不把设置值写入日志。
+        record_operation("settings.list")
         print(
             json.dumps(
                 {
@@ -195,12 +203,22 @@ def main(argv: list[str]) -> int:
             raise ValueError(f"unknown feature: {args.key}")
         values[args.key] = parse_setting_value(catalog[args.key], args.value)
         write_settings(values)
+        # 记录键名用于审计，但不记录新旧值，避免泄露用户配置。
+        record_operation("settings.set", details={"key": args.key})
         print(json.dumps({"ok": True, "key": args.key, "value": values[args.key]}))
+        return 0
+    if args.command == "query-log":
+        # 返回日志位置和筛选后的记录，方便 Skill 或用户直接消费 JSON。
+        print(json.dumps({"log_file": str(log_path()), "entries": query_operations(
+            operation=args.operation, result=args.result, limit=args.limit
+        )}, ensure_ascii=False, indent=2))
         return 0
     # reset-settings 不依赖旧文件内容，直接用当前目录中的默认值完整覆盖。
     catalog = load_feature_catalog()
     values = {key: clone_default(entry["default"]) for key, entry in catalog.items()}
     write_settings(values)
+    # 重置不记录具体默认值，因为默认值可能包含用户自定义模型清单。
+    record_operation("settings.reset")
     print(json.dumps({"ok": True, "features": values}, ensure_ascii=False))
     return 0
 
