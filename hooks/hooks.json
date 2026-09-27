@@ -1,13 +1,26 @@
 {
   "description": "Wttch 私人插件共享的 Hook。",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event SessionStart ${PLUGIN_ROOT}/runtime/prepare_environment.py",
+            "timeout": 600,
+            "statusMessage": "正在准备 Wttch 环境"
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${PLUGIN_ROOT}/runtime/bootstrap.py ${PLUGIN_ROOT}/runtime/model_gate.py",
-            "timeout": 10,
+            "command": "python3 ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event UserPromptSubmit ${PLUGIN_ROOT}/runtime/model_gate.py",
+            "timeout": 600,
             "statusMessage": "正在准备 Python 环境"
           }
         ]
@@ -19,8 +32,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${PLUGIN_ROOT}/runtime/bootstrap.py ${PLUGIN_ROOT}/runtime/jev_gate/main.py jev-gate --policy ${PLUGIN_ROOT}/skills/jev-gate/gate.yml",
-            "timeout": 30,
+            "command": "python3 ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event PreToolUse ${PLUGIN_ROOT}/runtime/jev_gate/main.py jev-gate --policy ${PLUGIN_ROOT}/skills/jev-gate/gate.yml",
+            "timeout": 600,
             "statusMessage": "正在准备 Python 环境"
           }
         ]

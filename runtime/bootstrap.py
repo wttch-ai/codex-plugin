@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -105,6 +106,11 @@ def ensure_environment(expected_digest: str) -> Path:
         subprocess.run(
             [sys.executable, "-m", "venv", str(VENV_PATH)],
             check=True,
+            # Hook stdout is reserved for the runtime script's JSON response.
+            # Virtual-environment setup is diagnostic output, so keep it on
+            # stderr even during first-run initialization.
+            stdout=sys.stderr,
+            stderr=sys.stderr,
         )
 
     if needs_creation or installed_digest != expected_digest:
@@ -112,6 +118,10 @@ def ensure_environment(expected_digest: str) -> Path:
         subprocess.run(
             [str(interpreter), "-m", "pip", "install", "--requirement", str(REQUIREMENTS_PATH)],
             check=True,
+            # pip normally writes installation progress to stdout.  Sending it
+            # to stderr prevents it from corrupting a Hook protocol response.
+            stdout=sys.stderr,
+            stderr=sys.stderr,
         )
         temporary = VENV_DIGEST_PATH.with_suffix(".tmp")
         temporary.write_text(expected_digest + "\n", encoding="utf-8")
@@ -123,11 +133,27 @@ def ensure_environment(expected_digest: str) -> Path:
     return interpreter
 
 
+def report_preparation_failure(hook_event: str | None) -> None:
+    """按 Hook 事件协议报告环境准备失败，并保持 Gate 的失败关闭行为。"""
+    reason = "Wttch 环境自动准备失败，本次请求已停止；下次请求会自动重试。"
+    if hook_event == "SessionStart":
+        print(json.dumps({"systemMessage": reason}, ensure_ascii=False))
+    elif hook_event in {"UserPromptSubmit", "PreToolUse"}:
+        print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
+
+
 def main() -> int:
     """准备环境后，以模块方式执行位于 runtime 目录内的目标脚本。"""
-    if len(sys.argv) < 2:
+    arguments = sys.argv[1:]
+    hook_event: str | None = None
+    if arguments[:1] == ["--hook-event"]:
+        if len(arguments) < 3:
+            raise ValueError("a hook event and runtime script are required")
+        hook_event = arguments[1]
+        arguments = arguments[2:]
+    if not arguments:
         raise ValueError("a runtime script is required")
-    runtime = Path(sys.argv[1]).resolve()
+    runtime = Path(arguments[0]).resolve()
     try:
         # 限制目标脚本范围，防止 Hook 参数被用于执行插件目录外的任意文件。
         relative_runtime = runtime.relative_to(RUNTIME_ROOT).with_suffix("")
@@ -136,13 +162,18 @@ def main() -> int:
     if not runtime.is_file():
         raise FileNotFoundError(runtime)
 
-    print("Wttch 环境：正在检查 Python 环境", file=sys.stderr, flush=True)
-    expected_digest = declared_digest()
-    acquire_lock()
     try:
-        interpreter = ensure_environment(expected_digest)
-    finally:
-        release_lock()
+        print("Wttch 环境：正在检查 Python 环境", file=sys.stderr, flush=True)
+        expected_digest = declared_digest()
+        acquire_lock()
+        try:
+            interpreter = ensure_environment(expected_digest)
+        finally:
+            release_lock()
+    except Exception:
+        # 环境无法准备时，不能让模型 Gate 静默失效或让用户手动修复环境。
+        report_preparation_failure(hook_event)
+        return 0
 
     module = ".".join(relative_runtime.parts)
     environment = os.environ.copy()
@@ -154,7 +185,7 @@ def main() -> int:
         else os.pathsep.join((str(RUNTIME_ROOT), pythonpath))
     )
     completed = subprocess.run(
-        [str(interpreter), "-m", module, *sys.argv[2:]],
+        [str(interpreter), "-m", module, *arguments[1:]],
         env=environment,
     )
     return completed.returncode
