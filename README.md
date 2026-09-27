@@ -5,7 +5,7 @@ Wttch 的私人 Codex 插件，用来集中维护可复用的 Skills、生命周
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.10`
+- 当前版本：`0.1.11`
 - 使用范围：私人插件
 
 ## 快速开始
@@ -49,8 +49,8 @@ YAML 策略决定：
 - `review`：调用 OpenRouter 中指定的模型进行上下文审查，再返回 `allow`
   或 `deny`。
 
-策略只保存判断规则。模型名称、API 地址、密钥和超时通过环境变量传入，
-不会写入仓库。
+策略只保存判断规则。OpenRouter API Key 可由工具调用工作目录下本机专用的
+`wttch-config.yml` 提供；模型名称、API 地址和超时通过环境变量传入。
 
 ### 模型 Gate
 
@@ -79,6 +79,11 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 `plugin-settings` Skill 可以查看和修改本机设置，包括 JEV Gate、模型 Gate、
 OpenRouter 审查、决策原因和审计日志。
 
+### 插件信息
+
+`plugin-info` Skill 显示工作目录配置字段、已设置的 Wttch 环境变量名称和显式保存的
+功能开关名称。它不显示任何配置值，包括 API Key、模型标识和功能开关值。
+
 ## 目录结构
 
 ```text
@@ -88,7 +93,9 @@ OpenRouter 审查、决策原因和审计日志。
 ├── config/features.json              # 本机功能开关清单
 ├── hooks/hooks.json                  # 生命周期 Hooks
 ├── runtime/bootstrap.py              # 环境检查、创建和依赖同步
+├── runtime/plugin_info.py             # 不含值的本机配置索引
 ├── runtime/settings.py               # 本机功能开关
+├── runtime/wttch_config.py            # Wttch 工作目录配置读取
 ├── runtime/model_gate.py             # 模型 Gate
 ├── runtime/jev_gate/                 # JEV Gate 独立模块
 │   ├── main.py                       # JEV Gate 入口
@@ -96,13 +103,17 @@ OpenRouter 审查、决策原因和审计日志。
 │   ├── review.py                     # OpenRouter 审查
 │   └── gate.py                       # Gate 评估和审计
 ├── requirements.txt                  # Python 依赖
+├── wttch-config-example.yml           # OpenRouter 本机配置示例
 └── skills/
     ├── README.md                     # Skill 开发约定
     ├── jev-gate/
     │   ├── SKILL.md                  # JEV Gate 使用说明
     │   └── gate.yml                  # Gate 策略
-    └── plugin-settings/
-        └── SKILL.md                  # 功能开关说明
+    ├── plugin-settings/
+    │   └── SKILL.md                  # 功能开关说明
+    └── plugin-info/
+        ├── SKILL.md                  # 配置索引说明
+        └── agents/openai.yaml         # Skill 界面信息
 ```
 
 ### `PLUGIN_ROOT` 和插件清单
@@ -207,11 +218,23 @@ python3 -c "import hashlib, pathlib; print(hashlib.md5(pathlib.Path('requirement
 
 ## 配置 OpenRouter
 
-运行时读取以下环境变量：
+将 `wttch-config-example.yml` 复制到需要使用 JEV 的工作目录，并命名为
+`wttch-config.yml`，再填入 OpenRouter API Key：
+
+```yaml
+openrouter:
+  api_key: "sk-or-v1-..."
+```
+
+`wttch-config.yml` 应由该工作目录的 `.gitignore` 忽略，不应提交。运行时优先读取
+`OPENROUTER_API_KEY` 环境变量；该变量为空时，Wttch 插件的 Hook 读取事件 `cwd`
+目录中的此文件，Wttch 插件的普通 Skill 运行时脚本读取其进程工作目录中的此文件。
+其他插件不会自动读取该配置。这使临时密钥和 CI 配置可以覆盖本机文件。
+
+模型、API 地址和超时仍通过以下环境变量配置：
 
 | 变量 | 是否必需 | 说明 |
 | --- | --- | --- |
-| `OPENROUTER_API_KEY` | review 时必需 | OpenRouter API Key，不要写入仓库 |
 | `JEV_OPENROUTER_MODEL` | review 时必需 | OpenRouter 模型 ID，例如 `provider/model-id` |
 | `JEV_OPENROUTER_BASE_URL` | 可选 | 默认 `https://openrouter.ai/api/v1` |
 | `JEV_OPENROUTER_TIMEOUT` | 可选 | 请求超时秒数，默认 `20` |
@@ -219,14 +242,12 @@ python3 -c "import hashlib, pathlib; print(hashlib.md5(pathlib.Path('requirement
 示例：
 
 ```bash
-export OPENROUTER_API_KEY="..."
 export JEV_OPENROUTER_MODEL="provider/model-id"
 export JEV_OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
 export JEV_OPENROUTER_TIMEOUT="20"
 ```
 
-密钥应保存在本机安全的环境配置或密钥管理工具中。不要把真实密钥写入
-`gate.yml`、README、脚本或 Git 提交。
+不要把真实密钥写入 `gate.yml`、README、脚本、示例文件或 Git 提交。
 
 ## JEV Gate 策略
 
@@ -308,8 +329,10 @@ printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"c
 
 预期结果中的 `permissionDecision` 应为 `deny`。
 
-测试 `review` 规则前，请确认 `OPENROUTER_API_KEY` 和
-`JEV_OPENROUTER_MODEL` 已设置。运行时不会输出 API Key。
+测试 `review` 规则前，请确认工作目录中 `wttch-config.yml` 的
+`openrouter.api_key` 或 `OPENROUTER_API_KEY` 已设置，并且
+`JEV_OPENROUTER_MODEL` 已设置。
+运行时不会输出 API Key。
 
 ## 更新插件
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "插件信息"
+  short_description: "查看 Wttch 插件已配置的项目"
+  default_prompt: "使用 $plugin-info 显示 Wttch 插件已配置的项目，但不要显示任何值。"

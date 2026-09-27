@@ -12,6 +12,11 @@ import yaml
 
 
 def load_policy(path: Path) -> dict[str, Any]:
+    """加载 YAML 策略并校验 Gate 运行前必须成立的结构约束。
+
+    正则在这里预编译一次，以便在 Hook 真正执行前暴露语法错误，而不是在匹配到某条
+    规则时才失败。
+    """
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError("gate policy must be a YAML object")
@@ -29,11 +34,17 @@ def load_policy(path: Path) -> dict[str, Any]:
         if rule.get("action") not in {"allow", "deny", "review"}:
             raise ValueError(f"rules[{index}].action must be allow, deny, or review")
         for pattern in rule.get("input_regex", []):
+            # 仅用于验证可编译性；运行时仍按原字符串调用 re.search。
             re.compile(pattern)
     return data
 
 
 def input_text(event: dict[str, Any]) -> str:
+    """提取用于正则匹配的工具输入文本。
+
+    Bash 命令是最常见且最适合直接匹配的形式；其他工具输入统一序列化为稳定 JSON，
+    使策略也能按参数内容匹配 Edit、Write 等结构化调用。
+    """
     value = event.get("tool_input", {})
     if isinstance(value, dict) and isinstance(value.get("command"), str):
         return value["command"]
@@ -41,6 +52,11 @@ def input_text(event: dict[str, Any]) -> str:
 
 
 def matching_rule(policy: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
+    """按配置顺序返回第一条同时匹配工具和输入的规则。
+
+    空 ``tools`` 或 ``input_regex`` 分别代表不限制工具、或不限制输入；两者均为空的
+    规则会匹配所有事件，因此应由策略作者将其放在具体规则之后。
+    """
     tool = str(event.get("tool_name", ""))
     text = input_text(event)
     for rule in policy["rules"]:
@@ -51,6 +67,7 @@ def matching_rule(policy: dict[str, Any], event: dict[str, Any]) -> dict[str, An
         if patterns and not any(re.search(pattern, text) for pattern in patterns):
             continue
         return rule
+    # 没有显式命中时把 defaults 伪装成规则，使后续评估和审计使用统一数据结构。
     return {
         "id": "defaults",
         "action": policy["defaults"]["action"],

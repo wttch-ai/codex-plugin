@@ -16,6 +16,7 @@ FEATURE_CATALOG_PATH = PLUGIN_ROOT / "config" / "features.json"
 
 
 def settings_path() -> Path:
+    """返回本机设置文件位置，测试或自动化可通过环境变量覆盖默认路径。"""
     override = os.environ.get("WTTCH_PLUGIN_SETTINGS_FILE", "").strip()
     if override:
         return Path(override).expanduser()
@@ -23,6 +24,7 @@ def settings_path() -> Path:
 
 
 def audit_log_path() -> Path:
+    """返回本机 JSONL 审计日志位置，支持用环境变量隔离测试数据。"""
     override = os.environ.get("WTTCH_PLUGIN_AUDIT_LOG", "").strip()
     if override:
         return Path(override).expanduser()
@@ -30,6 +32,7 @@ def audit_log_path() -> Path:
 
 
 def valid_default(entry: dict[str, Any]) -> bool:
+    """校验功能目录中的默认值是否符合其声明类型和候选值范围。"""
     feature_type = entry.get("type")
     default = entry.get("default")
     if feature_type == "boolean":
@@ -43,6 +46,11 @@ def valid_default(entry: dict[str, Any]) -> bool:
 
 
 def load_feature_catalog(path: Path = FEATURE_CATALOG_PATH) -> dict[str, dict[str, Any]]:
+    """读取功能目录，并在合并用户设置前严格校验其结构。
+
+    目录是所有可接受配置的唯一来源；尽早拒绝无效键、重复键和无效默认值，可避免
+    错误配置在 Hook 执行期间产生不确定行为。
+    """
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict) or data.get("version") != 1:
         raise ValueError("feature catalog version must be 1")
@@ -69,10 +77,12 @@ def load_feature_catalog(path: Path = FEATURE_CATALOG_PATH) -> dict[str, dict[st
 
 
 def clone_default(value: Any) -> Any:
+    """复制可变默认值，避免调用方修改列表后污染后续加载结果。"""
     return list(value) if isinstance(value, list) else value
 
 
 def valid_value(entry: dict[str, Any], value: Any) -> bool:
+    """根据目录条目的类型约束校验一个实际设置值。"""
     if entry["type"] == "boolean":
         return isinstance(value, bool)
     if entry["type"] == "string_list":
@@ -84,10 +94,16 @@ def valid_value(entry: dict[str, Any], value: Any) -> bool:
 
 
 def load_settings() -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    """以目录默认值为基线，加载并验证本机覆盖项。
+
+    设置文件可以只保存被用户修改过的条目。未保存的条目继续采用目录默认值，因此
+    新版本新增的功能开关也能自然获得默认配置。
+    """
     catalog = load_feature_catalog()
     values = {key: clone_default(entry["default"]) for key, entry in catalog.items()}
     path = settings_path()
     if not path.exists():
+        # 第一次使用时不创建文件，调用方可直接获得完整的默认设置。
         return values, catalog
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict) or not isinstance(data.get("features", {}), dict):
@@ -102,6 +118,7 @@ def load_settings() -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
 
 
 def write_settings(values: dict[str, Any]) -> None:
+    """原子替换本机设置文件，避免进程中断留下半个 JSON 文件。"""
     path = settings_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
@@ -109,10 +126,12 @@ def write_settings(values: dict[str, Any]) -> None:
         json.dumps({"version": 1, "features": values}, indent=2) + "\n",
         encoding="utf-8",
     )
+    # 同目录内的 replace 是原子操作，读者只能看到旧文件或完整的新文件。
     temporary.replace(path)
 
 
 def parse_boolean(value: str) -> bool:
+    """把命令行中常用的布尔拼写转换为 Python 布尔值。"""
     normalized = value.strip().lower()
     if normalized in {"true", "on", "yes", "1", "enable", "enabled"}:
         return True
@@ -122,11 +141,13 @@ def parse_boolean(value: str) -> bool:
 
 
 def parse_setting_value(entry: dict[str, Any], value: str) -> Any:
+    """按功能类型解析命令行值，并在写入前校验候选值。"""
     if entry["type"] == "boolean":
         return parse_boolean(value)
     if entry["type"] == "string_list":
         stripped = value.strip()
         if stripped.startswith("["):
+            # 列表以 JSON 形式提供时可保留包含逗号的单个元素。
             parsed = json.loads(stripped)
             if not valid_value(entry, parsed):
                 raise ValueError("value must be a JSON array of strings")
@@ -142,6 +163,7 @@ def parse_setting_value(entry: dict[str, Any], value: str) -> Any:
 
 
 def main(argv: list[str]) -> int:
+    """提供列出、更新和恢复本机功能设置的命令行入口。"""
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("list-settings")
@@ -175,6 +197,7 @@ def main(argv: list[str]) -> int:
         write_settings(values)
         print(json.dumps({"ok": True, "key": args.key, "value": values[args.key]}))
         return 0
+    # reset-settings 不依赖旧文件内容，直接用当前目录中的默认值完整覆盖。
     catalog = load_feature_catalog()
     values = {key: clone_default(entry["default"]) for key, entry in catalog.items()}
     write_settings(values)

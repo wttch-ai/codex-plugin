@@ -32,9 +32,9 @@ request. The user settings file is local and is created at
 `~/.config/wttch-codex-plugin/settings.json`; `WTTCH_PLUGIN_SETTINGS_FILE` may
 override that path for testing.
 
-Never write `OPENROUTER_API_KEY` into the settings file, repository, command
-arguments, output, or logs. It remains an environment variable or secret-store
-value.
+Never write `OPENROUTER_API_KEY` into the settings file, command arguments,
+output, or logs. The working directory's local Git-ignored `wttch-config.yml`
+may hold `openrouter.api_key`; an environment variable still takes precedence.
 
 ## Add a switch
 
