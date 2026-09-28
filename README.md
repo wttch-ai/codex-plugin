@@ -67,8 +67,9 @@ Hook 使用独立的 `skills/jev-gate/hook.yml` 配置，不会自动绑定 JEV 
 项目级决策可在 YAML 中声明 `hook.event: UserPromptSubmit`，由 JEV Prompt Hook 自动
 发现和执行；插件内置决策与示例永不自动执行。每个 question 都会单独请求 JEV，避免
 回答相互影响。命中 `hook.review_when` 后，Hook 会按 YAML 的 `on_review` 阻止提交并
-要求用户确认。JEV 对 `probability`/`confidence` 使用 0–1 数字；score 使用 YAML
-约定的数值标度。
+要求用户确认。JEV 的 `probability` 条件会使用 choice 的
+`probabilities[choice]` 或 noul 的 `noul`；`confidence` 使用 JEV 原生的
+`confidence` 字段；score 使用原生 `score` 数值。
 
 ```yaml
 hook:

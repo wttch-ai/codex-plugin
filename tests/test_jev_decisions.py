@@ -44,11 +44,24 @@ class JEVDecisionTypeTests(unittest.TestCase):
             "event": "UserPromptSubmit", "review_when": {"scope": {"probability_below": 0.80}},
             "on_review": {"action": "block", "reason": "请确认：{reasons}"},
         }}
-        with patch.object(jev_prompt_hook, "request_decision", return_value={"answers": {"scope": {"probability": 0.79}}}) as request:
+        response = {"answers": {"scope": {
+            "type": "choice", "choice": "work_task",
+            "probabilities": {"work_task": 0.79, "orchestrator_maintenance": 0.21},
+            "confidence": 0.58,
+        }}}
+        with patch.object(jev_prompt_hook, "request_decision", return_value=response) as request:
             reason, context = jev_prompt_hook.evaluate_definition(definition, "修复 ParserTest", ROOT)
         self.assertEqual(reason, "请确认：scope.probability 低于 0.8")
         self.assertIsNone(context)
         self.assertEqual(request.call_count, 1)
+
+    def test_prompt_hook_reads_native_noul_probability(self) -> None:
+        definition = {"hook": {"review_when": {"business": {"probability_between": [0.4, 0.6]}}}}
+        answers = {"business": {"type": "noul", "noul": 0.5}}
+        self.assertEqual(
+            jev_prompt_hook.review_reasons(definition, answers),
+            ["business.probability 处于 0.4–0.6"],
+        )
 
     def test_prompt_hook_confirmation_uses_yaml_pattern(self) -> None:
         definition = {"questions": {}, "hook": {"event": "UserPromptSubmit", "confirmation": {

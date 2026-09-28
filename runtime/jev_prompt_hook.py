@@ -51,7 +51,18 @@ def answer_for(payload: dict[str, Any], name: str) -> dict[str, Any]:
 
 
 def numeric(answer: dict[str, Any], field: str, question: str) -> float:
+    # Jev 的原生响应：choice 的概率在 probabilities[choice]，noul 的概率在 noul；
+    # score 直接返回 score。保留同名字段兼容自定义代理返回值。
     value = answer.get(field)
+    if field == "probability" and value is None:
+        answer_type = answer.get("type")
+        if answer_type == "noul":
+            value = answer.get("noul")
+        elif answer_type == "choice":
+            probabilities = answer.get("probabilities")
+            choice = answer.get("choice")
+            if isinstance(probabilities, dict) and isinstance(choice, str):
+                value = probabilities.get(choice)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"JEV 响应的 {question}.{field} 必须是数字")
     return float(value)
