@@ -1,5 +1,6 @@
 version: 1
 type: score
+group:
 defaults:
   action: review
   fail_open: false

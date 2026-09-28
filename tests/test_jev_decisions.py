@@ -19,12 +19,14 @@ class JEVDecisionTypeTests(unittest.TestCase):
 
     def test_choice_decision(self) -> None:
         self.assert_decision_type("sample-choice.yml", "choice")
+        self.assertEqual(load_policy(self.decision_dir / "sample-choice.yml")["group"], "safety")
 
     def test_noul_decision(self) -> None:
         self.assert_decision_type("sample-noul.yml", "noul")
 
     def test_score_decision(self) -> None:
         self.assert_decision_type("sample-score.yml", "score")
+        self.assertIsNone(load_policy(self.decision_dir / "sample-score.yml")["group"])
 
 
 if __name__ == "__main__":

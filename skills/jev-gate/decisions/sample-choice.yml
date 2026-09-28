@@ -1,5 +1,6 @@
 version: 1
 type: choice
+group: safety
 defaults:
   action: allow
   fail_open: false

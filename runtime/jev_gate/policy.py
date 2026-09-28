@@ -24,6 +24,8 @@ def load_policy(path: Path) -> dict[str, Any]:
         raise ValueError("gate policy version must be 1")
     if data.get("type") not in {"choice", "noul", "score"}:
         raise ValueError("JEV 决策类型必须是 choice、noul 或 score")
+    if "group" in data and data["group"] is not None and not isinstance(data["group"], str):
+        raise ValueError("JEV 决策 group 必须是字符串或空值")
     defaults = data.get("defaults")
     rules = data.get("rules")
     if not isinstance(defaults, dict) or not isinstance(rules, list):

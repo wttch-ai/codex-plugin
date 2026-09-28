@@ -35,6 +35,7 @@ def resolve_decision(name: str) -> Path:
 def list_decisions() -> int:
     """列出当前项目可执行的 JEV 决策。"""
     entries = []
+    groups: dict[str, list[dict[str, object]]] = {}
     for path in decision_files():
         policy = load_policy(path)
         actions = sorted({rule["action"] for rule in policy["rules"]})
@@ -42,9 +43,18 @@ def list_decisions() -> int:
             "name": path.stem,
             "file": str(path),
             "type": policy["type"],
+            "group": policy.get("group") or "",
             "actions": actions,
         })
-    print(json.dumps({"directory": str(DECISION_ROOT), "decisions": entries}, ensure_ascii=False, indent=2))
+        groups.setdefault(policy.get("group") or "", []).append(entries[-1])
+    print(json.dumps({
+        "directory": str(DECISION_ROOT),
+        "groups": [
+            {"group": group, "decisions": decisions}
+            for group, decisions in sorted(groups.items(), key=lambda item: item[0])
+        ],
+        "decisions": entries,
+    }, ensure_ascii=False, indent=2))
     return 0
 
 
