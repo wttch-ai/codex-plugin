@@ -1,9 +1,26 @@
 ---
-name: jev-gate
-description: 解释、验证、测试或扩展由 OpenRouter 驱动的 JEV 工具调用 Gate 及其纯 YAML 策略。适用于询问 Gate 行为、修改策略、试运行或添加受保护操作的场景。
+name: jev-decision
+description: 发现、解释、验证、测试或执行由 OpenRouter 驱动的 JEV 决策及其 YAML 策略。
 ---
 
-# JEV gate
+# JEV 决策
+
+JEV 决策文件位于当前 Codex 项目下的 `.agents/wttch/jev/*.yml`。每个文件定义一个
+可执行决策，支持三种动作：`allow`、`deny`、`review`。
+
+列出当前项目决策：
+
+```bash
+python3 "${PLUGIN_ROOT}/runtime/bootstrap.py" "${PLUGIN_ROOT}/runtime/jev_gate/main.py" jev-decision list
+```
+
+执行指定决策时，将 Hook 事件 JSON 通过标准输入传入：
+
+```bash
+echo '{"tool_name":"Bash","tool_input":{"command":"git status"}}' \
+  | python3 "${PLUGIN_ROOT}/runtime/bootstrap.py" "${PLUGIN_ROOT}/runtime/jev_gate/main.py" \
+      jev-decision run <decision-name>
+```
 
 This is one skill inside the larger Wttch plugin. Use the plugin's shared runtime
 instead of adding a separate environment or dependency file to this skill.
