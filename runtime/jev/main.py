@@ -14,12 +14,17 @@ from urllib.request import Request, urlopen
 import yaml
 
 
-DECISION_ROOT = Path(__file__).resolve().parents[2] / "skills" / "jev-gate" / "decisions"
+BUILTIN_DECISION_ROOT = Path(__file__).resolve().parents[2] / "skills" / "jev-gate" / "decisions"
+PROJECT_DECISION_ROOT = Path(".agents") / "wttch" / "jev"
 DEFAULT_ENDPOINT = "https://openrouter.ai/api/alpha/decisions"
 
 
-def decision_files() -> list[Path]:
-    return sorted(DECISION_ROOT.glob("*.yml"))
+def decision_files(cwd: Path | None = None) -> list[Path]:
+    """返回内置和当前项目的 JEV 决策，项目同名文件优先。"""
+    project_root = (cwd or Path.cwd()) / PROJECT_DECISION_ROOT
+    paths: dict[str, Path] = {path.stem: path for path in BUILTIN_DECISION_ROOT.glob("*.yml")}
+    paths.update({path.stem: path for path in project_root.glob("*.yml")})
+    return sorted(paths.values(), key=lambda path: path.stem)
 
 
 def load_decision(path: Path) -> dict:
@@ -41,11 +46,11 @@ def load_decision(path: Path) -> dict:
     return data
 
 
-def resolve(name: str) -> Path:
+def resolve(name: str, cwd: Path | None = None) -> Path:
     candidate = Path(name)
     if candidate.is_file():
         return candidate.resolve()
-    for path in decision_files():
+    for path in decision_files(cwd):
         if path.stem == name or path.name == name:
             return path
     raise FileNotFoundError(f"JEV 决策不存在：{name}")
@@ -87,7 +92,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "list":
         print(json.dumps([
-            {"name": path.stem, "file": str(path), "group": load_decision(path).get("group", "")}
+            {
+                "name": path.stem,
+                "file": str(path),
+                "group": load_decision(path).get("group", ""),
+                "source": "builtin" if BUILTIN_DECISION_ROOT in path.parents else "project",
+            }
             for path in decision_files()
         ], ensure_ascii=False, indent=2))
         return 0
