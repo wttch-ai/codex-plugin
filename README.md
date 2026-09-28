@@ -235,10 +235,10 @@ Bootstrap 的状态输出提供。
 python3 -c "import hashlib, pathlib; print(hashlib.md5(pathlib.Path('requirements.txt').read_bytes()).hexdigest())" > requirement.md5
 ```
 
-如果 `requirements.txt` 与 `requirement.md5` 不一致，Bootstrap 会直接报错，避免
-在插件版本不完整时更新环境。`.venv`、`.venv.bootstrap.lock/` 和虚拟环境中的
-`requirement.md5` 都是运行时文件，不应提交到仓库；只有插件根目录的
-`requirement.md5` 应随插件版本提交。
+如果 `requirements.txt` 与 `requirement.md5` 不一致，Bootstrap 会以
+`requirements.txt` 的实际指纹为准，自动执行 `pip install -r requirements.txt`。
+`.venv`、`.venv.bootstrap.lock/` 和虚拟环境中的 `requirement.md5` 都是运行时
+文件，不应提交到仓库；只有插件根目录的 `requirement.md5` 应随插件版本提交。
 
 ## 配置 OpenRouter
 

@@ -43,10 +43,11 @@ def requirements_digest() -> str:
 
 
 def declared_digest() -> str:
-    """验证随插件发布的指纹与实际依赖清单一致并返回该指纹。
+    """返回当前依赖清单的指纹，允许旧版发布指纹触发自动同步。
 
-    这不是安全用途的哈希，而是发布完整性检查：若两个文件不同，说明依赖清单可能
-    已修改但未同步发布指纹，此时不能用不完整的版本更新虚拟环境。
+    ``requirement.md5`` 是发布时的缓存提示，而非安全边界。插件升级时，若该文件
+    尚未同步更新，应以实际的 ``requirements.txt`` 为准，重新运行 pip，而不是让
+    所有 Hook 失败。
     """
     digest = REQUIREMENTS_DIGEST_PATH.read_text(encoding="utf-8").strip().lower()
     if len(digest) != 32 or any(character not in "0123456789abcdef" for character in digest):
@@ -63,11 +64,8 @@ def declared_digest() -> str:
         f"是否一致={digest == actual} 依赖文件={REQUIREMENTS_PATH}"
     )
     if digest != actual:
-        raise RuntimeError(
-            "依赖指纹不一致：requirement.md5 与 requirements.txt 不匹配；"
-            f"预期值={digest} 实际值={actual}"
-        )
-    return digest
+        record_runtime("发布依赖指纹已过期；将依据 requirements.txt 自动同步依赖。")
+    return actual
 
 
 def python_in_venv() -> Path:

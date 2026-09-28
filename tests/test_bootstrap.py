@@ -28,7 +28,7 @@ class BootstrapTests(unittest.TestCase):
         with patch.object(bootstrap, "REQUIREMENTS_PATH", self.requirements):
             self.assertEqual(bootstrap.requirements_digest(), expected)
 
-    def test_mismatch_is_written_to_chinese_runtime_log(self) -> None:
+    def test_mismatch_uses_actual_digest_and_records_auto_sync(self) -> None:
         self.requirements.write_text("PyYAML>=6.0\n", encoding="utf-8")
         self.digest.write_text("0" * 32, encoding="utf-8")
         with (
@@ -36,14 +36,15 @@ class BootstrapTests(unittest.TestCase):
             patch.object(bootstrap, "REQUIREMENTS_DIGEST_PATH", self.digest),
             patch.dict(os.environ, {"WTTCH_PLUGIN_RUNTIME_LOG": str(self.log)}),
         ):
-            with self.assertRaisesRegex(RuntimeError, "依赖指纹不一致"):
-                bootstrap.declared_digest()
+            result = bootstrap.declared_digest()
+            self.assertEqual(result, bootstrap.requirements_digest())
 
         content = self.log.read_text(encoding="utf-8")
         self.assertIn("依赖指纹比对", content)
         self.assertIn("预期值=", content)
         self.assertIn("实际值=", content)
         self.assertIn("是否一致=False", content)
+        self.assertIn("自动同步依赖", content)
 
     def test_settings_values_are_loaded_from_project_config(self) -> None:
         config = self.root / ".agents" / "wttch" / "config.yml"
