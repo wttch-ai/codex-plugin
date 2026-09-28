@@ -1,0 +1,10 @@
+version: 1
+type: choice
+defaults:
+  action: allow
+  fail_open: false
+rules:
+  - id: choose-safe
+    action: allow
+    tools: [Bash]
+    reason: "choice 示例：允许安全的本地命令。"

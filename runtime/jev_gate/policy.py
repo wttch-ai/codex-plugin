@@ -22,6 +22,8 @@ def load_policy(path: Path) -> dict[str, Any]:
         raise ValueError("gate policy must be a YAML object")
     if data.get("version") != 1:
         raise ValueError("gate policy version must be 1")
+    if data.get("type") not in {"choice", "noul", "score"}:
+        raise ValueError("JEV 决策类型必须是 choice、noul 或 score")
     defaults = data.get("defaults")
     rules = data.get("rules")
     if not isinstance(defaults, dict) or not isinstance(rules, list):

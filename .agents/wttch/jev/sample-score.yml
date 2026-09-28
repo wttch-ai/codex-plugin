@@ -1,0 +1,10 @@
+version: 1
+type: score
+defaults:
+  action: review
+  fail_open: false
+rules:
+  - id: score-risk
+    action: review
+    tools: [Bash]
+    instruction: "按风险等级对操作评分。"

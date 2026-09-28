@@ -37,7 +37,12 @@ def list_decisions(cwd: Path) -> int:
     for path in decision_files(cwd):
         policy = load_policy(path)
         actions = sorted({rule["action"] for rule in policy["rules"]})
-        entries.append({"name": path.stem, "file": str(path), "actions": actions})
+        entries.append({
+            "name": path.stem,
+            "file": str(path),
+            "type": policy["type"],
+            "actions": actions,
+        })
     print(json.dumps({"directory": str(cwd / DECISION_ROOT), "decisions": entries}, ensure_ascii=False, indent=2))
     return 0
 

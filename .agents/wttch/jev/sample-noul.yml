@@ -1,0 +1,10 @@
+version: 1
+type: noul
+defaults:
+  action: deny
+  fail_open: false
+rules:
+  - id: answer-safe
+    action: allow
+    tools: [Bash]
+    reason: "noul 示例：判断操作是否安全。"
