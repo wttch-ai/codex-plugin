@@ -1,6 +1,11 @@
 version: 1
 type: choice
 group: 内置示例
+question: "这个工具调用应该采取哪种处理方式？"
+options:
+  - allow
+  - review
+  - deny
 defaults:
   action: allow
   fail_open: false

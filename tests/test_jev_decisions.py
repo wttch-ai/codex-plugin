@@ -15,18 +15,22 @@ class JEVDecisionTypeTests(unittest.TestCase):
     def assert_decision_type(self, name: str, expected: str) -> None:
         policy = load_policy(self.decision_dir / name)
         self.assertEqual(policy["type"], expected)
+        self.assertTrue(policy["question"])
         self.assertIn(policy["defaults"]["action"], {"allow", "deny", "review"})
 
     def test_choice_decision(self) -> None:
         self.assert_decision_type("sample-choice.yml", "choice")
         self.assertEqual(load_policy(self.decision_dir / "sample-choice.yml")["group"], "内置示例")
+        self.assertEqual(len(load_policy(self.decision_dir / "sample-choice.yml")["options"]), 3)
 
     def test_noul_decision(self) -> None:
         self.assert_decision_type("sample-noul.yml", "noul")
+        self.assertIsInstance(load_policy(self.decision_dir / "sample-noul.yml")["truth"], bool)
 
     def test_score_decision(self) -> None:
         self.assert_decision_type("sample-score.yml", "score")
         self.assertEqual(load_policy(self.decision_dir / "sample-score.yml")["group"], "内置示例")
+        self.assertEqual(len(load_policy(self.decision_dir / "sample-score.yml")["levels"]), 4)
 
 
 if __name__ == "__main__":

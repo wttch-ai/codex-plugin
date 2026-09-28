@@ -1,5 +1,7 @@
 version: 1
 type: choice
+question: "这个工具调用应该允许、拒绝还是交给审查？"
+options: [allow, deny, review]
 
 # 这里只保存 Gate 策略。API Key 从工作目录的 wttch-config.yml 或运行时环境变量读取；
 # 模型、地址和超时仍来自 README.md 中说明的运行时环境变量。

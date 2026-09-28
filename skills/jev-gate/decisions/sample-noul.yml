@@ -1,6 +1,8 @@
 version: 1
 type: noul
 group: 内置示例
+question: "这个工具调用是否安全且符合当前用户请求？"
+truth: true
 defaults:
   action: deny
   fail_open: false

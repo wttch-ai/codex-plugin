@@ -26,6 +26,19 @@ def load_policy(path: Path) -> dict[str, Any]:
         raise ValueError("JEV 决策类型必须是 choice、noul 或 score")
     if "group" in data and data["group"] is not None and not isinstance(data["group"], str):
         raise ValueError("JEV 决策 group 必须是字符串或空值")
+    if not isinstance(data.get("question"), str) or not data["question"].strip():
+        raise ValueError("JEV 决策必须包含 question")
+    if data["type"] == "choice":
+        options = data.get("options")
+        if not isinstance(options, list) or len(options) < 2 or not all(isinstance(item, str) for item in options):
+            raise ValueError("choice 决策必须包含至少两个字符串 options")
+    elif data["type"] == "noul":
+        if not isinstance(data.get("truth"), bool):
+            raise ValueError("noul 决策必须包含布尔 truth")
+    else:
+        levels = data.get("levels")
+        if not isinstance(levels, list) or len(levels) < 2 or not all(isinstance(item, str) for item in levels):
+            raise ValueError("score 决策必须包含至少两个字符串 levels")
     defaults = data.get("defaults")
     rules = data.get("rules")
     if not isinstance(defaults, dict) or not isinstance(rules, list):

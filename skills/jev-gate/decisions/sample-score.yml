@@ -1,6 +1,12 @@
 version: 1
 type: score
 group: 内置示例
+question: "这个工具调用的风险等级是多少？"
+levels:
+  - low
+  - medium
+  - high
+  - critical
 defaults:
   action: review
   fail_open: false
