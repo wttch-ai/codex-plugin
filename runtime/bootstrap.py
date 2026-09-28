@@ -14,7 +14,7 @@ import time
 # Bootstrap 是所有 Hook 的共同入口，因此在这里记录环境准备成功或失败。
 from operation_log import record as record_operation, record_runtime
 from paths import (
-    BOOTSTRAP_LOCK_PATH, PLUGIN_ROOT, REQUIREMENTS_DIGEST_PATH, REQUIREMENTS_PATH,
+    BOOTSTRAP_LOCK_PATH, PLUGIN_ROOT, REQUIREMENTS_PATH,
     RUNTIME_ROOT, VENV_DIGEST_PATH, VENV_PATH,
 )
 
@@ -40,32 +40,6 @@ def requirements_digest() -> str:
     # 触发环境重建或误报完整性错误。
     content = REQUIREMENTS_PATH.read_text(encoding="utf-8").replace("\r\n", "\n")
     return hashlib.md5(content.encode("utf-8")).hexdigest()
-
-
-def declared_digest() -> str:
-    """返回当前依赖清单的指纹，允许旧版发布指纹触发自动同步。
-
-    ``requirement.md5`` 是发布时的缓存提示，而非安全边界。插件升级时，若该文件
-    尚未同步更新，应以实际的 ``requirements.txt`` 为准，重新运行 pip，而不是让
-    所有 Hook 失败。
-    """
-    digest = REQUIREMENTS_DIGEST_PATH.read_text(encoding="utf-8").strip().lower()
-    if len(digest) != 32 or any(character not in "0123456789abcdef" for character in digest):
-        record_runtime(
-            f"依赖指纹无效：文件={REQUIREMENTS_DIGEST_PATH} 内容={digest!r}"
-        )
-        raise RuntimeError(
-            f"依赖指纹格式无效：文件={REQUIREMENTS_DIGEST_PATH} "
-            f"内容={digest!r}"
-        )
-    actual = requirements_digest()
-    record_runtime(
-        f"依赖指纹比对：预期值={digest} 实际值={actual} "
-        f"是否一致={digest == actual} 依赖文件={REQUIREMENTS_PATH}"
-    )
-    if digest != actual:
-        record_runtime("发布依赖指纹已过期；将依据 requirements.txt 自动同步依赖。")
-    return actual
 
 
 def python_in_venv() -> Path:
@@ -206,7 +180,7 @@ def main() -> int:
 
     try:
         print("Wttch 环境：正在检查 Python 环境", file=sys.stderr, flush=True)
-        expected_digest = declared_digest()
+        expected_digest = requirements_digest()
         # 大多数 Hook 都走这里：依赖未变化时直接复用，避免每次都创建/检查锁目录。
         interpreter = ready_environment(expected_digest)
         if interpreter is None:

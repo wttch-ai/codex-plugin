@@ -16,9 +16,8 @@ RUNTIME_ROOT = PLUGIN_ROOT / "runtime"
 CONFIG_ROOT = PLUGIN_ROOT / "config"
 # 功能开关注册表，定义可用键、类型、默认值和说明。
 FEATURE_CATALOG_PATH = CONFIG_ROOT / "features.json"
-# Python 依赖清单，以及随插件发布的依赖清单内容指纹。
+# Python 依赖清单。
 REQUIREMENTS_PATH = PLUGIN_ROOT / "requirements.txt"
-REQUIREMENTS_DIGEST_PATH = PLUGIN_ROOT / "requirement.md5"
 # 插件共享虚拟环境、已安装依赖指纹和跨 Hook 初始化锁。
 # 这些是运行时生成内容，不应提交到仓库。
 VENV_PATH = PLUGIN_ROOT / ".venv"

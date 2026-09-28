@@ -199,12 +199,11 @@ Bootstrap 的状态输出提供。
 
 首次触发任意一个 Hook 时，Bootstrap 按以下顺序执行：
 
-1. 读取并校验根目录的 `requirement.md5`；
-2. 计算 `requirements.txt` 的 MD5，确认两者一致；
-3. 如果 `.venv` 或其中的 Python 解释器不存在，自动执行 `python -m venv .venv`；
-4. 执行 `.venv` 中的 `python -m pip install --requirement requirements.txt`；
-5. 安装成功后，将本次指纹写入 `.venv/requirement.md5`；
-6. 使用 `.venv` 中的 Python 执行对应的 Skill 脚本。
+1. 计算插件根目录 `requirements.txt` 的 MD5；
+2. 如果 `.venv` 或其中的 Python 解释器不存在，自动执行 `python -m venv .venv`；
+3. 执行 `.venv` 中的 `python -m pip install --requirement requirements.txt`；
+4. 安装成功后，将本次指纹写入 `.venv/requirement.md5`；
+5. 使用 `.venv` 中的 Python 执行对应的 Skill 脚本。
 
 插件会在会话启动、恢复或清空时自动预热 Python 环境，因此用户无需手动准备。
 模型 Gate 和 JEV Gate 仍保留 600 秒的初始化兜底等待；首次初始化完成后会直接
@@ -218,7 +217,7 @@ Bootstrap 的状态输出提供。
 每次运行时都会比较两个指纹：
 
 ```text
-插件内的 requirement.md5
+插件根目录 requirements.txt 的实际指纹
         与
 .venv/requirement.md5
 ```
@@ -229,16 +228,10 @@ Bootstrap 的状态输出提供。
 - 安装失败：不写入新指纹，下次运行会再次尝试；
 - 多个 Hook 同时启动：只有持有锁的进程负责初始化，其他进程等待初始化完成。
 
-更新 `requirements.txt` 后，需要同步重新生成插件根目录的 `requirement.md5`：
-
-```bash
-python3 -c "import hashlib, pathlib; print(hashlib.md5(pathlib.Path('requirements.txt').read_bytes()).hexdigest())" > requirement.md5
-```
-
-如果 `requirements.txt` 与 `requirement.md5` 不一致，Bootstrap 会以
-`requirements.txt` 的实际指纹为准，自动执行 `pip install -r requirements.txt`。
-`.venv`、`.venv.bootstrap.lock/` 和虚拟环境中的 `requirement.md5` 都是运行时
-文件，不应提交到仓库；只有插件根目录的 `requirement.md5` 应随插件版本提交。
+更新 `requirements.txt` 后无需维护额外的发布指纹：Bootstrap 直接计算其内容指纹，
+与 `${PLUGIN_ROOT}/.venv/requirement.md5` 比较；不一致时自动执行
+`pip install -r requirements.txt`。`.venv`、`.venv.bootstrap.lock/` 和虚拟环境中的
+`requirement.md5` 都是运行时文件，不应提交到仓库。
 
 ## 配置 OpenRouter
 
