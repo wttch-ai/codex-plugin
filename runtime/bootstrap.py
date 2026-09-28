@@ -27,7 +27,11 @@ STALE_LOCK_SECONDS = 900
 
 def requirements_digest() -> str:
     """计算依赖清单的内容指纹，用于判断虚拟环境是否需要同步。"""
-    return hashlib.md5(REQUIREMENTS_PATH.read_bytes()).hexdigest()
+    # Windows 工作区可能将 LF 转换为 CRLF（或由文件保护软件提供不同的
+    # 原始字节视图）；依赖清单按 Python 读取到的文本内容计算，避免无意义地
+    # 触发环境重建或误报完整性错误。
+    content = REQUIREMENTS_PATH.read_text(encoding="utf-8").replace("\r\n", "\n")
+    return hashlib.md5(content.encode("utf-8")).hexdigest()
 
 
 def declared_digest() -> str:
@@ -38,11 +42,18 @@ def declared_digest() -> str:
     """
     digest = REQUIREMENTS_DIGEST_PATH.read_text(encoding="utf-8").strip().lower()
     if len(digest) != 32 or any(character not in "0123456789abcdef" for character in digest):
+        record_runtime(
+            f"environment.digest invalid path={REQUIREMENTS_DIGEST_PATH} value={digest!r}"
+        )
         raise RuntimeError(
             f"invalid dependency digest: path={REQUIREMENTS_DIGEST_PATH} "
             f"value={digest!r}"
         )
     actual = requirements_digest()
+    record_runtime(
+        f"environment.digest compare expected={digest} actual={actual} "
+        f"match={digest == actual} requirements={REQUIREMENTS_PATH}"
+    )
     if digest != actual:
         raise RuntimeError(
             "requirement.md5 does not match requirements.txt; "
