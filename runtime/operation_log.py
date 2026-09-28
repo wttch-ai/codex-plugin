@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 # 默认位置集中在 paths.py；这里仍允许用环境变量隔离测试或切换本机存储位置。
-from paths import DEFAULT_OPERATION_LOG_PATH
+from paths import DEFAULT_OPERATION_LOG_PATH, DEFAULT_RUNTIME_LOG_PATH
 
 
 def log_path() -> Path:
@@ -18,6 +18,25 @@ def log_path() -> Path:
     if override:
         return Path(override).expanduser()
     return DEFAULT_OPERATION_LOG_PATH
+
+
+def runtime_log_path() -> Path:
+    """返回运行时诊断日志路径，支持测试或本机切换。"""
+    override = os.environ.get("WTTCH_PLUGIN_RUNTIME_LOG", "").strip()
+    if override:
+        return Path(override).expanduser()
+    return DEFAULT_RUNTIME_LOG_PATH
+
+
+def record_runtime(message: str) -> None:
+    """追加一行人类可读的运行时日志；日志故障不影响主流程。"""
+    try:
+        path = runtime_log_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as stream:
+            stream.write(f"{datetime.now(timezone.utc).isoformat()} {message}\n")
+    except (OSError, TypeError, ValueError):
+        return
 
 
 def record(operation: str, *, result: str = "ok", details: dict[str, Any] | None = None) -> None:

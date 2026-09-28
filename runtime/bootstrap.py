@@ -12,7 +12,7 @@ import sys
 import time
 
 # Bootstrap 是所有 Hook 的共同入口，因此在这里记录环境准备成功或失败。
-from operation_log import record as record_operation
+from operation_log import record as record_operation, record_runtime
 from paths import (
     BOOTSTRAP_LOCK_PATH, PLUGIN_ROOT, REQUIREMENTS_DIGEST_PATH, REQUIREMENTS_PATH,
     RUNTIME_ROOT, VENV_DIGEST_PATH, VENV_PATH,
@@ -194,9 +194,11 @@ def main() -> int:
                 interpreter = ensure_environment(expected_digest)
             finally:
                 release_lock()
-    except Exception:
+    except Exception as exc:
         # 只记录 Hook 类型，不记录事件正文，避免把用户输入写入日志。
         record_operation("environment.prepare", result="error", details={"hook_event": hook_event})
+        # Windows 下 venv/pip 失败时也保留可读诊断信息，便于排查启动环境问题。
+        record_runtime(f"environment.prepare error hook_event={hook_event or '-'} error={exc!r}")
         # 环境无法准备时，不能让模型 Gate 静默失效或让用户手动修复环境。
         report_preparation_failure(hook_event)
         return 0

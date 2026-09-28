@@ -30,3 +30,5 @@ DEFAULT_SETTINGS_PATH = Path.home() / ".config" / "wttch-codex-plugin" / "settin
 DEFAULT_AUDIT_LOG_PATH = Path.home() / ".local" / "state" / "wttch-codex-plugin" / "audit.jsonl"
 # 所有插件操作的统一 JSONL 日志位置；记录安全元数据，不记录敏感输入。
 DEFAULT_OPERATION_LOG_PATH = Path.home() / ".local" / "state" / "wttch-codex-plugin" / "operations.jsonl"
+# Human-readable diagnostic log, including bootstrap failures.
+DEFAULT_RUNTIME_LOG_PATH = Path.home() / ".local" / "state" / "wttch-codex-plugin" / "runtime.log"
