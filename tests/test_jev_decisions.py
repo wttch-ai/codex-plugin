@@ -15,7 +15,6 @@ class JEVDecisionTypeTests(unittest.TestCase):
     def assert_decision_type(self, name: str, expected: str) -> None:
         policy = load_policy(self.decision_dir / name)
         self.assertEqual(policy["type"], expected)
-        self.assertTrue(policy["question"])
         self.assertTrue(policy["system_prompt"])
         self.assertIn(policy["defaults"]["action"], {"allow", "deny", "review"})
 

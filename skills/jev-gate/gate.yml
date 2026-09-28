@@ -1,6 +1,5 @@
 version: 1
 type: choice
-question: "这个工具调用应该允许、拒绝还是交给审查？"
 system_prompt: "你是一个严格的工具调用安全决策器，只依据输入事实判断。"
 options:
   - name: allow

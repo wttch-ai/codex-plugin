@@ -7,7 +7,8 @@ description: 发现、解释、验证、测试或执行由 OpenRouter 驱动的 
 
 JEV 决策文件位于本 skill 的 `decisions/*.yml`。每个文件定义一个
 可执行决策，支持三种 JEV 类型：`choice`、`noul`、`score`。其中 `allow`、`deny`、
-`review` 是策略动作，不是 JEV 类型。
+`review` 是策略动作，不是 JEV 类型。决策文件只定义固定的类型、候选项和提示词；
+具体 `question` 在每次执行时由程序输入或 Hook 事件提供。
 
 列出当前项目决策：
 

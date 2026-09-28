@@ -1,7 +1,6 @@
 version: 1
 type: choice
 group: 内置示例
-question: "这个工具调用应该采取哪种处理方式？"
 system_prompt: "你是一个安全操作分类器，只根据工具输入和用户目标进行判断。"
 options:
   - name: allow

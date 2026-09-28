@@ -74,6 +74,7 @@ def main() -> int:
             run = decision.add_parser("run")
             run.add_argument("name")
             run.add_argument("--cwd", type=Path, default=Path.cwd())
+            run.add_argument("--question", help="本次执行的动态问题")
         else:
             sub.add_argument("--policy", type=Path, required=True)
     args = parser.parse_args()
@@ -84,6 +85,8 @@ def main() -> int:
         event = json.load(sys.stdin)
         if not isinstance(event, dict):
             raise ValueError("Hook 输入必须是 JSON 对象")
+        if args.question:
+            event["jev_question"] = args.question
         print(json.dumps(evaluate(policy, event), ensure_ascii=False))
         return 0
 

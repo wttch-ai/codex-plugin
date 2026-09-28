@@ -26,8 +26,6 @@ def load_policy(path: Path) -> dict[str, Any]:
         raise ValueError("JEV 决策类型必须是 choice、noul 或 score")
     if "group" in data and data["group"] is not None and not isinstance(data["group"], str):
         raise ValueError("JEV 决策 group 必须是字符串或空值")
-    if not isinstance(data.get("question"), str) or not data["question"].strip():
-        raise ValueError("JEV 决策必须包含 question")
     if not isinstance(data.get("system_prompt"), str) or not data["system_prompt"].strip():
         raise ValueError("JEV 决策必须包含 system_prompt")
     if data["type"] == "choice":
