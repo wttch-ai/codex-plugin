@@ -15,7 +15,7 @@ import yaml
 
 
 BUILTIN_DECISION_ROOT = Path(__file__).resolve().parents[2] / "skills" / "jev-gate" / "decisions"
-PROJECT_DECISION_ROOT = Path(".agents") / "wttch" / "jev"
+PROJECT_DECISION_ROOT = Path("jev_decisions")
 DEFAULT_ENDPOINT = "https://openrouter.ai/api/alpha/decisions"
 
 
