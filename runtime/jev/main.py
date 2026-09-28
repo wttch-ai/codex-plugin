@@ -51,8 +51,11 @@ def resolve(name: str) -> Path:
     raise FileNotFoundError(f"JEV 决策不存在：{name}")
 
 
-def run(decision: Path, state: str) -> int:
+def run(decision: Path, request_input: dict) -> int:
     definition = load_decision(decision)
+    state = request_input.get("state")
+    if not isinstance(state, str):
+        raise ValueError("JEV 输入必须包含字符串字段 state")
     payload = {
         "model": definition.get("model", "typesafe/jev-1.13"),
         "state": state,
@@ -81,7 +84,6 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("list")
     run_parser = sub.add_parser("run")
     run_parser.add_argument("name")
-    run_parser.add_argument("--state", required=True, help="本次执行的动态输入")
     args = parser.parse_args(argv)
     if args.command == "list":
         print(json.dumps([
@@ -89,7 +91,10 @@ def main(argv: list[str] | None = None) -> int:
             for path in decision_files()
         ], ensure_ascii=False, indent=2))
         return 0
-    return run(resolve(args.name), args.state)
+    request_input = json.load(sys.stdin)
+    if not isinstance(request_input, dict):
+        raise ValueError("JEV 输入必须是 JSON 对象")
+    return run(resolve(args.name), request_input)
 
 
 if __name__ == "__main__":

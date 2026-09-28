@@ -23,7 +23,9 @@ python3 "${PLUGIN_ROOT}/runtime/bootstrap.py" "${PLUGIN_ROOT}/runtime/jev/main.p
 ```bash
 echo '{"tool_name":"Bash","tool_input":{"command":"git status"}}' \
 python3 "${PLUGIN_ROOT}/runtime/bootstrap.py" "${PLUGIN_ROOT}/runtime/jev/main.py" \
-  run <decision-name> --state "本次执行的动态输入"
+  run <decision-name> <<'JSON'
+{"state":"本次执行的动态输入"}
+JSON
 ```
 
 This is one skill inside the larger Wttch plugin. Use the plugin's shared runtime
