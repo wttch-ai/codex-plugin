@@ -1,6 +1,6 @@
 version: 1
 type: choice
-group: safety
+group: 内置示例
 defaults:
   action: allow
   fail_open: false

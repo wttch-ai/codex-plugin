@@ -1,6 +1,6 @@
 version: 1
 type: score
-group:
+group: 内置示例
 defaults:
   action: review
   fail_open: false

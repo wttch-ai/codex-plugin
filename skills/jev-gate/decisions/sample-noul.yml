@@ -1,6 +1,6 @@
 version: 1
 type: noul
-group: safety
+group: 内置示例
 defaults:
   action: deny
   fail_open: false
