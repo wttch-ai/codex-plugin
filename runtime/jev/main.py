@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 import yaml
 
-from wttch_config import openrouter_api_key
+from wttch_config import load_config, openrouter_api_key
 
 
 BUILTIN_DECISION_ROOT = Path(__file__).resolve().parents[2] / "skills" / "jev-gate" / "decisions"
@@ -72,14 +72,18 @@ def request_decision(definition: dict, state: str, working_directory: Path | Non
             "OpenRouter API key is not configured: set "
             "<project>/.agents/wttch/config.yml openrouter.api_key"
         )
+    config = load_config(working_directory)
+    openrouter = config.get("openrouter", {})
+    if not isinstance(openrouter, dict):
+        raise ValueError(".agents/wttch/config.yml openrouter must be an object")
     request = Request(
-        os.environ.get("JEV_OPENROUTER_DECISIONS_URL", DEFAULT_ENDPOINT),
+        str(openrouter.get("decisions_url", DEFAULT_ENDPOINT)),
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
         method="POST",
     )
     try:
-        with urlopen(request, timeout=float(os.environ.get("JEV_OPENROUTER_TIMEOUT", "60"))) as response:
+        with urlopen(request, timeout=float(openrouter.get("timeout", 60))) as response:
             response_payload = json.loads(response.read().decode("utf-8"))
     except (HTTPError, URLError, TimeoutError) as exc:
         raise RuntimeError(f"JEV 请求失败：{exc}") from exc
