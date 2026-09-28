@@ -43,6 +43,19 @@ def load_decision(path: Path) -> dict:
             raise ValueError(f"JEV 问题缺少 instructions：{name}")
         if not question.get("criteria"):
             raise ValueError(f"JEV 问题缺少 criteria：{name}")
+    # routing 是用户态元数据，交由 AGENTS.md 或其它编排器消费；runtime 不解释它。
+    hook = data.get("hook")
+    if hook is not None:
+        if not isinstance(hook, dict) or hook.get("event") != "UserPromptSubmit":
+            raise ValueError(f"JEV hook 仅支持 event: UserPromptSubmit：{path}")
+        review_when = hook.get("review_when", {})
+        if not isinstance(review_when, dict):
+            raise ValueError(f"JEV hook.review_when 必须是对象：{path}")
+        for question, conditions in review_when.items():
+            if question not in questions or not isinstance(conditions, dict) or not conditions:
+                raise ValueError(f"JEV hook.review_when.{question} 无效：{path}")
+        if review_when and not isinstance(hook.get("on_review"), dict):
+            raise ValueError(f"JEV hook.review_when 需要 on_review：{path}")
     return data
 
 
@@ -56,11 +69,8 @@ def resolve(name: str, cwd: Path | None = None) -> Path:
     raise FileNotFoundError(f"JEV 决策不存在：{name}")
 
 
-def run(decision: Path, request_input: dict) -> int:
-    definition = load_decision(decision)
-    state = request_input.get("state")
-    if not isinstance(state, str):
-        raise ValueError("JEV 输入必须包含字符串字段 state")
+def request_decision(definition: dict, state: str) -> dict:
+    """执行一次 JEV 请求并返回已解码的对象，供 CLI 与 Hook 共用。"""
     payload = {
         "model": definition.get("model", "typesafe/jev-1.13"),
         "state": state,
@@ -77,9 +87,20 @@ def run(decision: Path, request_input: dict) -> int:
     )
     try:
         with urlopen(request, timeout=float(os.environ.get("JEV_OPENROUTER_TIMEOUT", "60"))) as response:
-            print(response.read().decode("utf-8"))
+            response_payload = json.loads(response.read().decode("utf-8"))
     except (HTTPError, URLError, TimeoutError) as exc:
         raise RuntimeError(f"JEV 请求失败：{exc}") from exc
+    if not isinstance(response_payload, dict):
+        raise RuntimeError("JEV 响应必须是 JSON 对象")
+    return response_payload
+
+
+def run(decision: Path, request_input: dict) -> int:
+    definition = load_decision(decision)
+    state = request_input.get("state")
+    if not isinstance(state, str):
+        raise ValueError("JEV 输入必须包含字符串字段 state")
+    print(json.dumps(request_decision(definition, state), ensure_ascii=False))
     return 0
 
 

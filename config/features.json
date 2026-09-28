@@ -9,6 +9,13 @@
       "default": true
     },
     {
+      "key": "jev_prompt_hook",
+      "label": "JEV Prompt Hook",
+      "description": "在每次提交用户消息时执行项目级 YAML 中声明了 UserPromptSubmit Hook 的 JEV 决策。",
+      "type": "boolean",
+      "default": true
+    },
+    {
       "key": "openrouter_review",
       "label": "OpenRouter 审查",
       "description": "允许 review 规则调用已配置的 OpenRouter 模型。关闭后，review 操作将按失败关闭策略拒绝。",
