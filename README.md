@@ -5,7 +5,7 @@ Wttch 的私人 Codex 插件，用来集中维护可复用的 Skills、生命周
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.11`
+- 当前版本：`0.1.30`
 - 使用范围：私人插件
 
 ## 快速开始
@@ -39,18 +39,30 @@ wttch-codex-plugin@wttch-ai  installed, enabled
 
 ## 功能概览
 
-### JEV Gate
+### JEV 决策与 Hook
 
-`jev-gate` 在 Codex 执行受支持的本地工具前运行 `PreToolUse` Hook，并按照
-YAML 策略决定：
+JEV 是独立 runtime，可发现插件内置决策以及当前项目的
+`jev_decisions/*.yml`。决策定义使用官方的 `questions` 格式，支持：
 
-- `allow`：直接允许，不调用远程模型；
-- `deny`：直接拒绝，不调用远程模型；
-- `review`：调用 OpenRouter 中指定的模型进行上下文审查，再返回 `allow`
-  或 `deny`。
+- `choice`：固定选项选择；
+- `noul`：真假判断；
+- `score`：按等级评分。
 
-策略只保存判断规则。OpenRouter API Key 可由工具调用工作目录下本机专用的
-`wttch-config.yml` 提供；模型名称、API 地址和超时通过环境变量传入。
+列出决策：
+
+```bash
+python3 runtime/bootstrap.py runtime/jev/main.py list
+```
+
+执行决策时，动态输入通过 JSON stdin 传入，避免命令行字符串注入：
+
+```bash
+echo '{"state":"需要判断的动态输入"}' |
+python3 runtime/bootstrap.py runtime/jev/main.py run sample-choice
+```
+
+Hook 使用独立的 `skills/jev-gate/hook.yml` 配置，不会自动绑定 JEV 决策。
+只有 Hook 配置明确调用 JEV runtime 时，才会产生关联。
 
 ### 模型 Gate
 
@@ -101,7 +113,10 @@ OpenRouter 审查、决策原因和审计日志。插件操作会自动记录到
 ├── runtime/operation_log.py          # 统一操作日志和查询
 ├── runtime/wttch_config.py            # Wttch 工作目录配置读取
 ├── runtime/model_gate.py             # 模型 Gate
-├── runtime/jev_gate/                 # JEV Gate 独立模块
+├── runtime/jev/                      # 独立 JEV runtime
+│   ├── main.py                       # list/run 命令
+│   └── __init__.py
+├── runtime/jev_gate/                 # Hook 规则实现（兼容模块）
 │   ├── main.py                       # JEV Gate 入口
 │   ├── policy.py                     # 策略加载和匹配
 │   ├── review.py                     # OpenRouter 审查
@@ -111,8 +126,9 @@ OpenRouter 审查、决策原因和审计日志。插件操作会自动记录到
 └── skills/
     ├── README.md                     # Skill 开发约定
     ├── jev-gate/
-    │   ├── SKILL.md                  # JEV Gate 使用说明
-    │   └── gate.yml                  # Gate 策略
+    │   ├── SKILL.md                  # JEV 使用说明
+    │   ├── hook.yml                  # Hook 专用配置
+    │   └── decisions/*.yml            # 内置 JEV 决策
     ├── plugin-settings/
     │   └── SKILL.md                  # 功能开关说明
     └── plugin-info/
@@ -258,38 +274,28 @@ export JEV_OPENROUTER_TIMEOUT="20"
 
 不要把真实密钥写入 `gate.yml`、README、脚本、示例文件或 Git 提交。
 
-## JEV Gate 策略
+## Hook 配置与 JEV runtime
 
-策略文件位于 `skills/jev-gate/gate.yml`。示例：
+Hook 专用配置位于 `skills/jev-gate/hook.yml`，只负责工具匹配和 Hook 动作。
+它与 JEV 决策定义分离。内置决策位于 `skills/jev-gate/decisions/*.yml`，项目级
+决策位于项目根目录的 `jev_decisions/*.yml`。
+
+JEV 决策示例：
 
 ```yaml
 version: 1
-
-defaults:
-  action: allow
-  fail_open: true
-
-rules:
-  - id: example-rule
-    tools: [Bash, apply_patch]
-    input_regex:
-      - '(?i)production|deploy'
-    action: review
-    instruction: >-
-      判断此工具调用是否安全且符合用户请求，只返回严格 JSON。
+model: typesafe/jev-1.13
+questions:
+  team:
+    type: choice
+    instructions: "这条消息应该由哪个团队处理？"
+    criteria:
+      billing: "支付、付款、发票、退款。"
+      technical: "缺陷、故障、集成、API 错误。"
+      sales: "定价、升级、新账户。"
 ```
 
-规则从上到下匹配，命中第一条后停止。建议按以下顺序排列：
-
-1. 明确且无条件禁止的操作设为 `deny`；
-2. 需要理解用户意图和上下文的操作设为 `review`；
-3. 确定安全的操作设为 `allow`；
-4. 具体规则放在宽泛规则之前。
-
-`defaults.fail_open` 控制 JEV 无法访问时的行为：
-
-- `true`：记录降级原因并允许工具调用；
-- `false`：拒绝工具调用，直到 JEV 恢复可用。
+`state` 不写入决策 YAML，而是在执行时通过 JSON stdin 传入。
 
 ## 功能开关
 
@@ -325,7 +331,13 @@ python3 runtime/settings.py reset-settings
 
 ```bash
 python3 runtime/bootstrap.py runtime/jev_gate/main.py validate-jev-policy \
-  --policy skills/jev-gate/gate.yml
+  --policy skills/jev-gate/hook.yml
+```
+
+列出独立 JEV 决策：
+
+```bash
+python3 runtime/bootstrap.py runtime/jev/main.py list
 ```
 
 模拟一个应被拒绝的 `PreToolUse` 事件：
@@ -333,7 +345,7 @@ python3 runtime/bootstrap.py runtime/jev_gate/main.py validate-jev-policy \
 ```bash
 printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"/workspace"}' \
   | python3 runtime/bootstrap.py runtime/jev_gate/main.py jev-gate \
-      --policy skills/jev-gate/gate.yml
+      --policy skills/jev-gate/hook.yml
 ```
 
 预期结果中的 `permissionDecision` 应为 `deny`。
