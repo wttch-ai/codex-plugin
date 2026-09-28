@@ -14,6 +14,7 @@ from typing import Any
 from operation_log import log_path, query as query_operations, record as record_operation
 # 所有静态路径来自同一模块；环境变量覆盖仍由各自的路径函数处理。
 from paths import DEFAULT_AUDIT_LOG_PATH, DEFAULT_SETTINGS_PATH, FEATURE_CATALOG_PATH
+from wttch_config import load_config
 
 
 def settings_path() -> Path:
@@ -94,24 +95,17 @@ def valid_value(entry: dict[str, Any], value: Any) -> bool:
     return False
 
 
-def load_settings() -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
-    """以目录默认值为基线，加载并验证本机覆盖项。
-
-    设置文件可以只保存被用户修改过的条目。未保存的条目继续采用目录默认值，因此
-    新版本新增的功能开关也能自然获得默认配置。
-    """
+def load_settings(working_directory: Path | None = None) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    """以目录默认值为基线，读取项目 ``config.yml`` 中的 features 覆盖项。"""
     catalog = load_feature_catalog()
     values = {key: clone_default(entry["default"]) for key, entry in catalog.items()}
-    path = settings_path()
-    if not path.exists():
-        # 第一次使用时不创建文件，调用方可直接获得完整的默认设置。
-        return values, catalog
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or not isinstance(data.get("features", {}), dict):
-        raise ValueError(f"settings file is invalid: {path}")
-    for key, value in data["features"].items():
+    data = load_config(working_directory)
+    overrides = data.get("features", {})
+    if not isinstance(overrides, dict):
+        raise ValueError(".agents/wttch/config.yml features must be an object")
+    for key, value in overrides.items():
         if key not in catalog:
-            raise ValueError(f"unknown feature in settings file: {key}")
+            raise ValueError(f"unknown feature in .agents/wttch/config.yml: {key}")
         if not valid_value(catalog[key], value):
             raise ValueError(f"feature {key} has an invalid value")
         values[key] = value

@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from pathlib import Path
 from typing import Any
 
 from settings import load_settings
@@ -46,8 +47,7 @@ def handle_blocked_model(model: str, action: str) -> dict[str, Any]:
         return warn(f"警告：当前模型 {model} 在模型 Gate 禁用清单中，但本轮请求将继续。")
     return block(
         f"模型 Gate 已阻止当前模型：{model}。"
-        "如需关闭此限制，请运行："
-        "python3 runtime/settings.py set-setting model_gate off"
+        "如需关闭此限制，请在项目 .agents/wttch/config.yml 的 features.model_gate 中设为 false。"
     )
 
 
@@ -75,7 +75,9 @@ def main() -> int:
         event = json.load(sys.stdin)
         if not isinstance(event, dict):
             raise ValueError("hook input must be a JSON object")
-        settings, _ = load_settings()
+        cwd = event.get("cwd")
+        working_directory = Path(cwd) if isinstance(cwd, str) and cwd.strip() else None
+        settings, _ = load_settings(working_directory)
         result = evaluate(event, settings)
     except Exception as exc:
         # Hook 自身异常也必须阻止请求，避免配置或解析错误失去保护作用。

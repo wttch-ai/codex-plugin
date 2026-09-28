@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+from pathlib import Path
 from typing import Any
 
 from .policy import matching_rule
@@ -63,7 +64,9 @@ def evaluate(policy: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
     ``review`` 规则依赖远程模型。远程审查关闭、失败或返回拒绝时的行为由本机设置
     及策略的 ``fail_open`` 决定，保证所有分支都形成明确的 allow 或 deny 响应。
     """
-    settings, _ = load_settings()
+    cwd = event.get("cwd")
+    working_directory = Path(cwd) if isinstance(cwd, str) and cwd.strip() else None
+    settings, _ = load_settings(working_directory)
     if not settings["jev_gate"]:
         # 总开关关闭后不匹配规则、不访问远程服务，也不记录审计日志。
         return allow()

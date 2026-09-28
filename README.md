@@ -75,12 +75,9 @@ JEV runtime 只执行 YAML 中定义的 `choice`、`noul` 与 `score` 问题，�
 
 模型名匹配不区分大小写，并将空格、下划线和连字符视为等价分隔符。拒绝时
 返回 Codex UserPromptSubmit 支持的 `{"decision":"block","reason":"..."}`。
-处理方式由已注册的 `model_gate_action` 设置控制：`block` 直接阻止并提示如何关闭
-模型 Gate，`warn` 添加警告后继续。默认值为 `block`。阻止提示中的关闭命令为：
-
-```bash
-python3 runtime/settings.py set-setting model_gate off
-```
+处理方式由项目 `.agents/wttch/config.yml` 的 `features.model_gate_action` 控制：
+`block` 直接阻止，`warn` 添加警告后继续。要关闭模型 Gate，请设置
+`features.model_gate: false`。
 
 模型 Gate 只能读取 Hook 事件中的当前模型，不能判断 Codex 界面中的推理强度或
 `x1.5 speed`。Hook 事件字段和调试方式见 [Codex Hooks 文档](https://learn.chatgpt.com/docs/hooks)。
@@ -89,8 +86,8 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 
 ### 功能开关
 
-`plugin-settings` Skill 可以查看和修改本机设置，包括 JEV Gate、模型 Gate、
-OpenRouter 审查、决策原因和审计日志。插件操作会自动记录到本机 JSONL 日志，
+项目 `.agents/wttch/config.yml` 统一配置 JEV Gate、模型 Gate、OpenRouter 审查、
+决策原因和审计日志。插件操作会自动记录到本机 JSONL 日志，
 可用 `python3 runtime/settings.py query-log` 查询，并可按操作类型和结果筛选。
 运行时诊断（包括 Python 虚拟环境准备失败）同时追加到用户状态目录下的
 `runtime.log`；可通过 `WTTCH_PLUGIN_RUNTIME_LOG` 覆盖其路径。

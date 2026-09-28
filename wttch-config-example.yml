@@ -3,3 +3,18 @@
 # .agents/wttch/config.yml 应被 .gitignore 忽略，请勿将真实密钥写入本示例文件。
 openrouter:
   api_key: "sk-or-v1-your-openrouter-api-key"
+  model: "typesafe/jev-1.13"
+  base_url: "https://openrouter.ai/api/v1"
+  timeout: 20
+
+features:
+  jev_gate: true
+  openrouter_review: true
+  show_decision_reason: true
+  audit_log: false
+  model_gate: true
+  model_gate_action: block
+  blocked_models:
+    - gpt-6-luna
+    - gpt-6-sol
+    - gpt-6-astra

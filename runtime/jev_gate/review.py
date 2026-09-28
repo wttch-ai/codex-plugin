@@ -10,7 +10,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from wttch_config import openrouter_api_key
+from wttch_config import load_config, openrouter_api_key
 
 
 def review(rule: dict[str, Any], event: dict[str, Any]) -> tuple[bool, str]:
@@ -25,19 +25,21 @@ def review(rule: dict[str, Any], event: dict[str, Any]) -> tuple[bool, str]:
         Path(cwd).expanduser() if isinstance(cwd, str) and cwd.strip() else None
     )
     api_key = openrouter_api_key(working_directory)
-    model = os.environ.get("JEV_OPENROUTER_MODEL", "").strip()
+    config = load_config(working_directory)
+    openrouter = config.get("openrouter", {})
+    if not isinstance(openrouter, dict):
+        raise ValueError(".agents/wttch/config.yml openrouter must be an object")
+    model = str(openrouter.get("model", "")).strip()
     if not api_key:
         raise RuntimeError(
             "OpenRouter API key is not configured: set "
             "<project>/.agents/wttch/config.yml openrouter.api_key"
         )
     if not model:
-        raise RuntimeError("JEV_OPENROUTER_MODEL is not set")
+        raise RuntimeError(".agents/wttch/config.yml openrouter.model is not set")
 
-    base_url = os.environ.get(
-        "JEV_OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
-    ).rstrip("/")
-    timeout = float(os.environ.get("JEV_OPENROUTER_TIMEOUT", "20"))
+    base_url = str(openrouter.get("base_url", "https://openrouter.ai/api/v1")).rstrip("/")
+    timeout = float(openrouter.get("timeout", 20))
     # temperature 为零并要求 JSON 对象，降低审查结果格式和决策的随机性。
     body = json.dumps(
         {
