@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event SessionStart ${PLUGIN_ROOT}/runtime/prepare_environment.py",
+            "command": "python ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event SessionStart ${PLUGIN_ROOT}/runtime/prepare_environment.py",
             "timeout": 600
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event UserPromptSubmit ${PLUGIN_ROOT}/runtime/model_gate.py",
+            "command": "python ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event UserPromptSubmit ${PLUGIN_ROOT}/runtime/model_gate.py",
             "timeout": 600
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event PreToolUse ${PLUGIN_ROOT}/runtime/jev_gate/main.py jev-gate --policy ${PLUGIN_ROOT}/skills/jev-gate/gate.yml",
+            "command": "python ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event PreToolUse ${PLUGIN_ROOT}/runtime/jev_gate/main.py jev-gate --policy ${PLUGIN_ROOT}/skills/jev-gate/gate.yml",
             "timeout": 600
           }
         ]
