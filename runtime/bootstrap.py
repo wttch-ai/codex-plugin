@@ -25,6 +25,14 @@ LOCK_TIMEOUT_SECONDS = 180
 STALE_LOCK_SECONDS = 900
 
 
+def configure_utf8_stdio() -> None:
+    """让 Hook 协议在 Windows 和 macOS 上都以 UTF-8 传输。"""
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def requirements_digest() -> str:
     """计算依赖清单的内容指纹，用于判断虚拟环境是否需要同步。"""
     # Windows 工作区可能将 LF 转换为 CRLF（或由文件保护软件提供不同的
@@ -180,6 +188,7 @@ def report_preparation_failure(hook_event: str | None) -> None:
 
 def main() -> int:
     """准备环境后，以模块方式执行位于 runtime 目录内的目标脚本。"""
+    configure_utf8_stdio()
     arguments = sys.argv[1:]
     hook_event: str | None = None
     if arguments[:1] == ["--hook-event"]:
@@ -227,6 +236,7 @@ def main() -> int:
 
     module = ".".join(relative_runtime.parts)
     environment = os.environ.copy()
+    environment["PYTHONIOENCODING"] = "utf-8"
     pythonpath = environment.get("PYTHONPATH", "")
     # 目标脚本以 ``-m`` 执行，显式加入 runtime 根目录以保留包内和共享模块导入。
     environment["PYTHONPATH"] = (
