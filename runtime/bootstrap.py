@@ -38,11 +38,15 @@ def declared_digest() -> str:
     """
     digest = REQUIREMENTS_DIGEST_PATH.read_text(encoding="utf-8").strip().lower()
     if len(digest) != 32 or any(character not in "0123456789abcdef" for character in digest):
-        raise RuntimeError(f"invalid dependency digest: {REQUIREMENTS_DIGEST_PATH}")
+        raise RuntimeError(
+            f"invalid dependency digest: path={REQUIREMENTS_DIGEST_PATH} "
+            f"value={digest!r}"
+        )
     actual = requirements_digest()
     if digest != actual:
         raise RuntimeError(
             "requirement.md5 does not match requirements.txt; "
+            f"expected={digest} actual={actual}; "
             "regenerate it before running the plugin"
         )
     return digest
@@ -196,7 +200,11 @@ def main() -> int:
                 release_lock()
     except Exception as exc:
         # 只记录 Hook 类型，不记录事件正文，避免把用户输入写入日志。
-        record_operation("environment.prepare", result="error", details={"hook_event": hook_event})
+        record_operation(
+            "environment.prepare",
+            result="error",
+            details={"hook_event": hook_event, "error": str(exc)},
+        )
         # Windows 下 venv/pip 失败时也保留可读诊断信息，便于排查启动环境问题。
         record_runtime(f"environment.prepare error hook_event={hook_event or '-'} error={exc!r}")
         # 环境无法准备时，不能让模型 Gate 静默失效或让用户手动修复环境。
