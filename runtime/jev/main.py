@@ -45,19 +45,6 @@ def load_decision(path: Path) -> dict:
             raise ValueError(f"JEV 问题缺少 instructions：{name}")
         if not question.get("criteria"):
             raise ValueError(f"JEV 问题缺少 criteria：{name}")
-    # routing 是用户态元数据，交由 AGENTS.md 或其它编排器消费；runtime 不解释它。
-    hook = data.get("hook")
-    if hook is not None:
-        if not isinstance(hook, dict) or hook.get("event") != "UserPromptSubmit":
-            raise ValueError(f"JEV hook 仅支持 event: UserPromptSubmit：{path}")
-        review_when = hook.get("review_when", {})
-        if not isinstance(review_when, dict):
-            raise ValueError(f"JEV hook.review_when 必须是对象：{path}")
-        for question, conditions in review_when.items():
-            if question not in questions or not isinstance(conditions, dict) or not conditions:
-                raise ValueError(f"JEV hook.review_when.{question} 无效：{path}")
-        if review_when and not isinstance(hook.get("on_review"), dict):
-            raise ValueError(f"JEV hook.review_when 需要 on_review：{path}")
     return data
 
 

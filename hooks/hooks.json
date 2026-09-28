@@ -20,11 +20,6 @@
             "type": "command",
             "command": "python ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event UserPromptSubmit ${PLUGIN_ROOT}/runtime/model_gate.py",
             "timeout": 600
-          },
-          {
-            "type": "command",
-            "command": "python ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event UserPromptSubmit ${PLUGIN_ROOT}/runtime/jev_prompt_hook.py",
-            "timeout": 600
           }
         ]
       }

@@ -62,32 +62,8 @@ python3 runtime/bootstrap.py runtime/jev/main.py run sample-choice
 ```
 
 Hook 使用独立的 `skills/jev-gate/hook.yml` 配置，不会自动绑定 JEV 决策。
-只有 Hook 配置明确调用 JEV runtime 时，才会产生关联。
-
-项目级决策可在 YAML 中声明 `hook.event: UserPromptSubmit`，由 JEV Prompt Hook 自动
-发现和执行；插件内置决策与示例永不自动执行。每个 question 都会单独请求 JEV，避免
-回答相互影响。命中 `hook.review_when` 后，Hook 会按 YAML 的 `on_review` 阻止提交并
-要求用户确认。JEV 的 `probability` 条件会使用 choice 的
-`probabilities[choice]` 或 noul 的 `noul`；`confidence` 使用 JEV 原生的
-`confidence` 字段；score 使用原生 `score` 数值。
-
-```yaml
-hook:
-  event: UserPromptSubmit
-  review_when:
-    task_scope:
-      probability_below: 0.80
-    involves_business_implementation:
-      probability_between: [0.40, 0.60]
-    routing_clarity:
-      score_below: 1.5
-  on_review:
-    action: block
-    reason: "路由需要你确认：{reasons}。请以“路由选择：work_task”或“路由选择：orchestrator_maintenance”开头重发原请求。"
-  confirmation:
-    pattern: '^\s*路由选择\s*[:：]\s*(work_task|orchestrator_maintenance)(?:\s|$)'
-    context: "用户明确选择路由：{0}。请由 AGENTS.md 的启动规则处理。"
-```
+JEV runtime 只执行 YAML 中定义的 `choice`、`noul` 与 `score` 问题，并原样返回结构化结果；
+路由、任务创建、Hook 调度和用户介入均由调用方自行实现。
 
 ### 模型 Gate
 
