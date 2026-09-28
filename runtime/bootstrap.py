@@ -51,22 +51,21 @@ def declared_digest() -> str:
     digest = REQUIREMENTS_DIGEST_PATH.read_text(encoding="utf-8").strip().lower()
     if len(digest) != 32 or any(character not in "0123456789abcdef" for character in digest):
         record_runtime(
-            f"environment.digest invalid path={REQUIREMENTS_DIGEST_PATH} value={digest!r}"
+            f"依赖指纹无效：文件={REQUIREMENTS_DIGEST_PATH} 内容={digest!r}"
         )
         raise RuntimeError(
-            f"invalid dependency digest: path={REQUIREMENTS_DIGEST_PATH} "
-            f"value={digest!r}"
+            f"依赖指纹格式无效：文件={REQUIREMENTS_DIGEST_PATH} "
+            f"内容={digest!r}"
         )
     actual = requirements_digest()
     record_runtime(
-        f"environment.digest compare expected={digest} actual={actual} "
-        f"match={digest == actual} requirements={REQUIREMENTS_PATH}"
+        f"依赖指纹比对：预期值={digest} 实际值={actual} "
+        f"是否一致={digest == actual} 依赖文件={REQUIREMENTS_PATH}"
     )
     if digest != actual:
         raise RuntimeError(
-            "requirement.md5 does not match requirements.txt; "
-            f"expected={digest} actual={actual}; "
-            "regenerate it before running the plugin"
+            "依赖指纹不一致：requirement.md5 与 requirements.txt 不匹配；"
+            f"预期值={digest} 实际值={actual}"
         )
     return digest
 
@@ -226,7 +225,9 @@ def main() -> int:
             details={"hook_event": hook_event, "error": str(exc)},
         )
         # Windows 下 venv/pip 失败时也保留可读诊断信息，便于排查启动环境问题。
-        record_runtime(f"environment.prepare error hook_event={hook_event or '-'} error={exc!r}")
+        record_runtime(
+            f"环境准备失败：Hook={hook_event or '-'} 错误={exc!r}"
+        )
         # 环境无法准备时，不能让模型 Gate 静默失效或让用户手动修复环境。
         report_preparation_failure(hook_event)
         return 0
