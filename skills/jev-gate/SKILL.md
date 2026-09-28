@@ -9,6 +9,8 @@ JEV 决策文件位于本 skill 的 `decisions/*.yml`。每个文件定义一个
 可执行决策，支持三种 JEV 类型：`choice`、`noul`、`score`。其中 `allow`、`deny`、
 `review` 是策略动作，不是 JEV 类型。决策文件只定义固定的类型、候选项和提示词；
 具体 `question` 在每次执行时由程序输入或 Hook 事件提供。
+这些决策默认不绑定 Hook。Hook 的匹配规则单独位于 `hook.yml`；只有在 Hook 配置
+明确引用某个决策时，Hook 才会调用该决策。
 
 列出当前项目决策：
 

@@ -22,25 +22,29 @@ def load_policy(path: Path) -> dict[str, Any]:
         raise ValueError("gate policy must be a YAML object")
     if data.get("version") != 1:
         raise ValueError("gate policy version must be 1")
-    if "questions" not in data and data.get("type") not in {"choice", "noul", "score"}:
+    if (
+        "questions" not in data
+        and "rules" not in data
+        and data.get("type") not in {"choice", "noul", "score"}
+    ):
         raise ValueError("JEV 决策类型必须是 choice、noul 或 score")
     if "group" in data and data["group"] is not None and not isinstance(data["group"], str):
         raise ValueError("JEV 决策 group 必须是字符串或空值")
-    if "questions" not in data and data["type"] == "choice":
+    if "questions" not in data and data.get("type") == "choice":
         options = data.get("options")
         if not isinstance(options, list) or len(options) < 2 or not all(
             isinstance(item, dict) and isinstance(item.get("name"), str)
             and isinstance(item.get("prompt"), str) for item in options
         ):
             raise ValueError("choice 决策的 options 必须包含至少两个 name/prompt 对象")
-    elif "questions" not in data and data["type"] == "noul":
+    elif "questions" not in data and data.get("type") == "noul":
         outcomes = data.get("outcomes")
         if not isinstance(outcomes, dict) or not all(
             isinstance(outcomes.get(key), str) and outcomes[key].strip()
             for key in ("true", "false")
         ):
             raise ValueError("noul 决策必须包含 true/false 的 outcomes 提示词")
-    elif "questions" not in data:
+    elif "questions" not in data and data.get("type") == "score":
         levels = data.get("levels")
         if not isinstance(levels, list) or len(levels) < 2 or not all(
             isinstance(item, dict) and isinstance(item.get("name"), str)

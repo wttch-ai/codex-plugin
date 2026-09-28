@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event PreToolUse ${PLUGIN_ROOT}/runtime/jev_gate/main.py jev-gate --policy ${PLUGIN_ROOT}/skills/jev-gate/gate.yml",
+            "command": "python ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event PreToolUse ${PLUGIN_ROOT}/runtime/jev_gate/main.py jev-gate --policy ${PLUGIN_ROOT}/skills/jev-gate/hook.yml",
             "timeout": 600
           }
         ]

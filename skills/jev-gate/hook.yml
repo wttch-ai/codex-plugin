@@ -1,0 +1,30 @@
+version: 1
+
+# 这是 Hook 专用配置，不是 JEV 决策定义。
+# decisions/*.yml 中的决策不会自动绑定到任何 Hook。
+defaults:
+  action: deny
+  fail_open: true
+
+rules:
+  - id: block-obvious-destructive-shell
+    description: 无需调用 JEV，直接阻止明显具有破坏性的 Shell 命令。
+    tools: [Bash]
+    input_regex:
+      - '(?i)(^|\s)rm\s+-[^\n]*r[^\n]*f\s+(/|~|\$HOME)(\s|$)'
+      - '(?i)(^|\s)git\s+push\s+[^\n]*--force(?:-with-lease)?'
+    action: deny
+    reason: "Hook 本地规则已阻止该操作：检测到破坏性命令。"
+
+  - id: review-sensitive-actions
+    description: 让 JEV 审查可能涉及敏感数据或部署状态的操作。
+    tools: [Bash, apply_patch]
+    input_regex:
+      - '(?i)(\.env|credentials?|secrets?|private[_-]?key|production|deploy|release)'
+    action: review
+    instruction: "判断这个工具调用是否安全且符合用户请求。"
+
+  - id: allow-routine-local-work
+    description: 允许其他匹配的本地操作。
+    tools: [Bash, apply_patch]
+    action: allow
