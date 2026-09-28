@@ -2,11 +2,16 @@ version: 1
 type: score
 group: 内置示例
 question: "这个工具调用的风险等级是多少？"
+system_prompt: "你是一个工具调用风险评分器，只根据可观察风险进行分级。"
 levels:
-  - low
-  - medium
-  - high
-  - critical
+  - name: low
+    prompt: "无明显风险，可逆且范围明确。"
+  - name: medium
+    prompt: "存在有限影响或需要注意的权限风险。"
+  - name: high
+    prompt: "可能造成较大影响、数据风险或不可逆变更。"
+  - name: critical
+    prompt: "明显破坏性、重大越权或高价值数据风险。"
 defaults:
   action: review
   fail_open: false

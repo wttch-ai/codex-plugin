@@ -1,7 +1,14 @@
 version: 1
 type: choice
 question: "这个工具调用应该允许、拒绝还是交给审查？"
-options: [allow, deny, review]
+system_prompt: "你是一个严格的工具调用安全决策器，只依据输入事实判断。"
+options:
+  - name: allow
+    prompt: "操作范围明确、低风险且符合用户请求时选择。"
+  - name: deny
+    prompt: "操作明显危险、越权或具有破坏性时选择。"
+  - name: review
+    prompt: "无法确定安全性，或需要额外上下文时选择。"
 
 # 这里只保存 Gate 策略。API Key 从工作目录的 wttch-config.yml 或运行时环境变量读取；
 # 模型、地址和超时仍来自 README.md 中说明的运行时环境变量。
