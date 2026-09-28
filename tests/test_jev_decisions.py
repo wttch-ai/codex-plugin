@@ -10,7 +10,7 @@ from jev_gate.policy import load_policy  # noqa: E402
 
 
 class JEVDecisionTypeTests(unittest.TestCase):
-    decision_dir = ROOT / ".agents" / "wttch" / "jev"
+    decision_dir = ROOT / "skills" / "jev-gate" / "decisions"
 
     def assert_decision_type(self, name: str, expected: str) -> None:
         policy = load_policy(self.decision_dir / name)

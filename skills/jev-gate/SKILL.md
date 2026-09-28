@@ -1,11 +1,11 @@
 ---
-name: jev-decision
+name: jev-gate
 description: 发现、解释、验证、测试或执行由 OpenRouter 驱动的 JEV 决策及其 YAML 策略。
 ---
 
 # JEV 决策
 
-JEV 决策文件位于当前 Codex 项目下的 `.agents/wttch/jev/*.yml`。每个文件定义一个
+JEV 决策文件位于本 skill 的 `decisions/*.yml`。每个文件定义一个
 可执行决策，支持三种 JEV 类型：`choice`、`noul`、`score`。其中 `allow`、`deny`、
 `review` 是策略动作，不是 JEV 类型。
 

@@ -10,31 +10,32 @@ from pathlib import Path
 
 from .gate import evaluate
 from .policy import load_policy
+from paths import PLUGIN_ROOT
 
 
-DECISION_ROOT = Path(".agents") / "wttch" / "jev"
+DECISION_ROOT = PLUGIN_ROOT / "skills" / "jev-gate" / "decisions"
 
 
-def decision_files(cwd: Path) -> list[Path]:
-    """返回当前项目中的 JEV 决策文件。"""
-    return sorted((cwd / DECISION_ROOT).glob("*.yml"))
+def decision_files() -> list[Path]:
+    """返回随 jev-gate skill 发布的 JEV 决策文件。"""
+    return sorted(DECISION_ROOT.glob("*.yml"))
 
 
-def resolve_decision(name: str, cwd: Path) -> Path:
+def resolve_decision(name: str) -> Path:
     """按文件名或决策名解析项目决策文件。"""
     candidate = Path(name)
     if candidate.is_file():
         return candidate.resolve()
-    for path in decision_files(cwd):
+    for path in decision_files():
         if path.stem == name or path.name == name:
             return path.resolve()
     raise FileNotFoundError(f"JEV 决策不存在：{name}")
 
 
-def list_decisions(cwd: Path) -> int:
+def list_decisions() -> int:
     """列出当前项目可执行的 JEV 决策。"""
     entries = []
-    for path in decision_files(cwd):
+    for path in decision_files():
         policy = load_policy(path)
         actions = sorted({rule["action"] for rule in policy["rules"]})
         entries.append({
@@ -43,7 +44,7 @@ def list_decisions(cwd: Path) -> int:
             "type": policy["type"],
             "actions": actions,
         })
-    print(json.dumps({"directory": str(cwd / DECISION_ROOT), "decisions": entries}, ensure_ascii=False, indent=2))
+    print(json.dumps({"directory": str(DECISION_ROOT), "decisions": entries}, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -68,8 +69,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.command == "jev-decision":
         if args.decision_command == "list":
-            return list_decisions(Path.cwd())
-        policy = load_policy(resolve_decision(args.name, args.cwd))
+            return list_decisions()
+        policy = load_policy(resolve_decision(args.name))
         event = json.load(sys.stdin)
         if not isinstance(event, dict):
             raise ValueError("Hook 输入必须是 JSON 对象")
