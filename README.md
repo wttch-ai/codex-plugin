@@ -119,13 +119,14 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 │   ├── policy.py                     # 策略加载和匹配
 │   ├── review.py                     # OpenRouter 审查
 │   └── gate.py                       # Gate 评估和审计
+├── runtime/rag_toolkit/               # 插件代码；RAG 数据保留在调用项目内
 ├── requirements.txt                  # Python 依赖
 ├── .agents/wttch/config.yml           # 项目 OpenRouter 配置（本地创建）
 └── skills/
     ├── README.md                     # Skill 开发约定
     ├── jev-gate/
-    │   ├── SKILL.md                  # JEV 使用说明
-    │   ├── hook.yml                  # Hook 专用配置
+    ├── rag-toolkit/                   # 项目本地 RAG 记忆库
+    │   └── SKILL.md
     │   └── decisions/*.yml            # 内置 JEV 决策
     ├── plugin-settings/
     │   └── SKILL.md                  # 功能开关说明

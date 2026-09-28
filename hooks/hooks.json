@@ -26,6 +26,16 @@
     ],
     "PreToolUse": [
       {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python ${PLUGIN_ROOT}/runtime/bootstrap.py --hook-event PreToolUse ${PLUGIN_ROOT}/runtime/forbidden_server.py",
+            "timeout": 600
+          }
+        ]
+      },
+      {
         "matcher": "Bash|apply_patch|Edit|Write",
         "hooks": [
           {
