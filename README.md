@@ -42,7 +42,7 @@ wttch-codex-plugin@wttch-ai  installed, enabled
 ### JEV 决策与 Hook
 
 JEV 是独立 runtime，可发现插件内置决策以及当前项目的
-`jev_decisions/*.yml`。决策定义使用官方的 `questions` 格式，支持：
+`.agents/wttch/jev-decisions/*.yml`。决策定义使用官方的 `questions` 格式，支持：
 
 - `choice`：固定选项选择；
 - `noul`：真假判断；
@@ -278,7 +278,7 @@ export JEV_OPENROUTER_TIMEOUT="20"
 
 Hook 专用配置位于 `skills/jev-gate/hook.yml`，只负责工具匹配和 Hook 动作。
 它与 JEV 决策定义分离。内置决策位于 `skills/jev-gate/decisions/*.yml`，项目级
-决策位于项目根目录的 `jev_decisions/*.yml`。
+决策位于项目根目录的 `.agents/wttch/jev-decisions/*.yml`。
 
 JEV 决策示例：
 
