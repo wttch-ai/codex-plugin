@@ -1,5 +1,5 @@
 # 仅供 Wttch 插件的 Hook 和 Skill 运行时读取。复制到需要使用 JEV 的工作目录并
-# 命名为 wttch-config.yml 后填入真实密钥。
-# wttch-config.yml 已被 .gitignore 忽略，请勿将真实密钥写入本示例文件。
+# 将内容写入项目 .agents/wttch/config.yml 后填入真实密钥。
+# .agents/wttch/config.yml 应被 .gitignore 忽略，请勿将真实密钥写入本示例文件。
 openrouter:
   api_key: "sk-or-v1-your-openrouter-api-key"

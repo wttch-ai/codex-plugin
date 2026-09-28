@@ -17,7 +17,7 @@ def review(rule: dict[str, Any], event: dict[str, Any]) -> tuple[bool, str]:
     """请求 OpenRouter 审查工具调用，返回是否允许及可展示的原因。
 
     API Key 优先使用环境变量，未设置时从工具调用工作目录下的
-    ``wttch-config.yml`` 读取。模型配置仍只从环境变量读取；策略文件仅描述需要
+    ``.agents/wttch/config.yml`` 读取。模型配置仍只从环境变量读取；策略文件仅描述需要
     判断的操作，避免将凭据写入会提交的策略文件。
     """
     cwd = event.get("cwd")
@@ -33,7 +33,7 @@ def review(rule: dict[str, Any], event: dict[str, Any]) -> tuple[bool, str]:
     if not api_key:
         raise RuntimeError(
             "OpenRouter API key is not configured: set OPENROUTER_API_KEY "
-            "or <working-directory>/wttch-config.yml openrouter.api_key"
+            "or <project>/.agents/wttch/config.yml openrouter.api_key"
         )
     if not model:
         raise RuntimeError("JEV_OPENROUTER_MODEL is not set")

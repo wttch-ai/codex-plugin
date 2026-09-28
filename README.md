@@ -122,7 +122,7 @@ OpenRouter 审查、决策原因和审计日志。插件操作会自动记录到
 │   ├── review.py                     # OpenRouter 审查
 │   └── gate.py                       # Gate 评估和审计
 ├── requirements.txt                  # Python 依赖
-├── wttch-config-example.yml           # OpenRouter 本机配置示例
+├── .agents/wttch/config.yml           # 项目 OpenRouter 配置（本地创建）
 └── skills/
     ├── README.md                     # Skill 开发约定
     ├── jev-gate/
@@ -243,15 +243,15 @@ python3 -c "import hashlib, pathlib; print(hashlib.md5(pathlib.Path('requirement
 
 ## 配置 OpenRouter
 
-将 `wttch-config-example.yml` 复制到需要使用 JEV 的工作目录，并命名为
-`wttch-config.yml`，再填入 OpenRouter API Key：
+将 `wttch-config-example.yml` 的内容写入项目根目录的
+`.agents/wttch/config.yml`，再填入 OpenRouter API Key：
 
 ```yaml
 openrouter:
   api_key: "sk-or-v1-..."
 ```
 
-`wttch-config.yml` 应由该工作目录的 `.gitignore` 忽略，不应提交。运行时优先读取
+`.agents/wttch/config.yml` 应由项目 `.gitignore` 忽略，不应提交。运行时优先读取
 `OPENROUTER_API_KEY` 环境变量；该变量为空时，Wttch 插件的 Hook 读取事件 `cwd`
 目录中的此文件，Wttch 插件的普通 Skill 运行时脚本读取其进程工作目录中的此文件。
 其他插件不会自动读取该配置。这使临时密钥和 CI 配置可以覆盖本机文件。
@@ -350,7 +350,7 @@ printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"c
 
 预期结果中的 `permissionDecision` 应为 `deny`。
 
-测试 `review` 规则前，请确认工作目录中 `wttch-config.yml` 的
+测试 `review` 规则前，请确认项目 `.agents/wttch/config.yml` 的
 `openrouter.api_key` 或 `OPENROUTER_API_KEY` 已设置，并且
 `JEV_OPENROUTER_MODEL` 已设置。
 运行时不会输出 API Key。

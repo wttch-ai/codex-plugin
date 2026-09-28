@@ -35,7 +35,7 @@ instead of adding a separate environment or dependency file to this skill.
 1. Read `gate.yml` before changing behavior. Keep it limited to gate policy:
    defaults, matching rules, actions, reasons, and review instructions.
 2. Keep model and transport settings out of the policy YAML. Read the API key
-   from `wttch-config.yml` in the runtime working directory, field
+   from `.agents/wttch/config.yml` in the project working directory, field
    `openrouter.api_key`, or from `OPENROUTER_API_KEY` when it is set. Wttch
    plugin Hooks use the event's `cwd`; its ordinary Skill scripts use their
    process working directory. Read model and transport settings from

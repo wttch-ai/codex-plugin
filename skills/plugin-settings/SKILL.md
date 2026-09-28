@@ -34,7 +34,7 @@ request. The user settings file is local and is created at
 override that path for testing.
 
 Never write `OPENROUTER_API_KEY` into the settings file, command arguments,
-output, or logs. The working directory's local Git-ignored `wttch-config.yml`
+output, or logs. The project's local Git-ignored `.agents/wttch/config.yml`
 may hold `openrouter.api_key`; an environment variable still takes precedence.
 
 ## Query operation logs

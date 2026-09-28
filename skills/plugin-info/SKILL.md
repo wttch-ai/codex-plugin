@@ -13,7 +13,7 @@ python3 "${PLUGIN_ROOT}/runtime/bootstrap.py" "${PLUGIN_ROOT}/runtime/plugin_inf
 
 输出中的字段含义如下：
 
-- `working_directory_config_fields`：工作目录 `wttch-config.yml` 中已存在的字段路径；
+- `working_directory_config_fields`：项目 `.agents/wttch/config.yml` 中已存在的字段路径；
 - `environment_variables`：当前进程中已设置、且被 Wttch 插件读取的环境变量名；
 - `plugin_setting_overrides`：本机设置文件中显式保存的功能开关名。
 
