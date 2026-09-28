@@ -38,11 +38,12 @@ def list_decisions() -> int:
     groups: dict[str, list[dict[str, object]]] = {}
     for path in decision_files():
         policy = load_policy(path)
-        actions = sorted({rule["action"] for rule in policy["rules"]})
+        actions = sorted({rule["action"] for rule in policy.get("rules", [])})
+        types = sorted({question["type"] for question in policy.get("questions", {}).values()})
         entries.append({
             "name": path.stem,
             "file": str(path),
-            "type": policy["type"],
+            "type": policy.get("type") or types,
             "group": policy.get("group") or "",
             "actions": actions,
         })

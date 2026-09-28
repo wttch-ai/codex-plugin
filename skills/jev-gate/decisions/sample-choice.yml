@@ -1,19 +1,11 @@
 version: 1
-type: choice
 group: 内置示例
-system_prompt: "你是一个安全操作分类器，只根据工具输入和用户目标进行判断。"
-options:
-  - name: allow
-    prompt: "操作安全、范围清晰且符合用户目标。"
-  - name: review
-    prompt: "操作需要额外上下文才能判断。"
-  - name: deny
-    prompt: "操作具有明显破坏性、越权或敏感数据风险。"
-defaults:
-  action: allow
-  fail_open: false
-rules:
-  - id: choose-safe
-    action: allow
-    tools: [Bash]
-    reason: "choice 示例：允许安全的本地命令。"
+model: typesafe/jev-1.13
+questions:
+  team:
+    type: choice
+    instructions: "这条消息应该由哪个团队处理？"
+    criteria:
+      billing: "支付、付款、发票、退款。"
+      technical: "缺陷、故障、集成、API 错误。"
+      sales: "定价、升级、新账户。"

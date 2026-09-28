@@ -1,15 +1,10 @@
 version: 1
-type: noul
 group: 内置示例
-system_prompt: "你是一个二元安全判断器，必须根据证据回答真假。"
-outcomes:
-  "true": "工具调用安全、范围明确并且符合用户请求。"
-  "false": "工具调用存在风险、越权或与用户请求不符。"
-defaults:
-  action: deny
-  fail_open: false
-rules:
-  - id: answer-safe
-    action: allow
-    tools: [Bash]
-    reason: "noul 示例：判断操作是否安全。"
+model: typesafe/jev-1.13
+questions:
+  safe_to_run:
+    type: noul
+    instructions: "这个操作是否可以在不先获得人工批准的情况下安全执行？"
+    criteria:
+      "true": "操作可逆或影响很小，并且明确属于任务范围。"
+      "false": "操作具有破坏性、不可逆，或超出任务所需范围。"

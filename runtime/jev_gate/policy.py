@@ -22,37 +22,50 @@ def load_policy(path: Path) -> dict[str, Any]:
         raise ValueError("gate policy must be a YAML object")
     if data.get("version") != 1:
         raise ValueError("gate policy version must be 1")
-    if data.get("type") not in {"choice", "noul", "score"}:
+    if "questions" not in data and data.get("type") not in {"choice", "noul", "score"}:
         raise ValueError("JEV 决策类型必须是 choice、noul 或 score")
     if "group" in data and data["group"] is not None and not isinstance(data["group"], str):
         raise ValueError("JEV 决策 group 必须是字符串或空值")
-    if not isinstance(data.get("system_prompt"), str) or not data["system_prompt"].strip():
-        raise ValueError("JEV 决策必须包含 system_prompt")
-    if data["type"] == "choice":
+    if "questions" not in data and data["type"] == "choice":
         options = data.get("options")
         if not isinstance(options, list) or len(options) < 2 or not all(
             isinstance(item, dict) and isinstance(item.get("name"), str)
             and isinstance(item.get("prompt"), str) for item in options
         ):
             raise ValueError("choice 决策的 options 必须包含至少两个 name/prompt 对象")
-    elif data["type"] == "noul":
+    elif "questions" not in data and data["type"] == "noul":
         outcomes = data.get("outcomes")
         if not isinstance(outcomes, dict) or not all(
             isinstance(outcomes.get(key), str) and outcomes[key].strip()
             for key in ("true", "false")
         ):
             raise ValueError("noul 决策必须包含 true/false 的 outcomes 提示词")
-    else:
+    elif "questions" not in data:
         levels = data.get("levels")
         if not isinstance(levels, list) or len(levels) < 2 or not all(
             isinstance(item, dict) and isinstance(item.get("name"), str)
             and isinstance(item.get("prompt"), str) for item in levels
         ):
             raise ValueError("score 决策的 levels 必须包含至少两个 name/prompt 对象")
-    defaults = data.get("defaults")
-    rules = data.get("rules")
+    defaults = data.get("defaults", {"action": "allow", "fail_open": False})
+    rules = data.get("rules", [])
     if not isinstance(defaults, dict) or not isinstance(rules, list):
-        raise ValueError("gate policy requires defaults and rules")
+        raise ValueError("JEV 决策的 defaults 和 rules 必须是对象/列表")
+    questions = data.get("questions")
+    if questions is not None:
+        if not isinstance(questions, dict) or not questions:
+            raise ValueError("JEV 决策 questions 必须是非空对象")
+        for name, question in questions.items():
+            if not isinstance(name, str) or not isinstance(question, dict):
+                raise ValueError("JEV question 必须是对象")
+            if question.get("type") not in {"choice", "noul", "score"}:
+                raise ValueError("JEV question 类型必须是 choice、noul 或 score")
+            if not isinstance(question.get("instructions"), str):
+                raise ValueError("JEV question 必须包含 instructions")
+            criteria = question.get("criteria")
+            if not isinstance(criteria, (dict, list)) or not criteria:
+                raise ValueError("JEV question 必须包含 criteria")
+        return data
     if defaults.get("action") not in {"allow", "deny", "review"}:
         raise ValueError("defaults.action must be allow, deny, or review")
     for index, rule in enumerate(rules):
