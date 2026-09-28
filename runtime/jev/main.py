@@ -13,6 +13,8 @@ from urllib.request import Request, urlopen
 
 import yaml
 
+from wttch_config import openrouter_api_key
+
 
 BUILTIN_DECISION_ROOT = Path(__file__).resolve().parents[2] / "skills" / "jev-gate" / "decisions"
 PROJECT_DECISION_ROOT = Path(".agents") / "wttch" / "jev-decisions"
@@ -69,16 +71,20 @@ def resolve(name: str, cwd: Path | None = None) -> Path:
     raise FileNotFoundError(f"JEV 决策不存在：{name}")
 
 
-def request_decision(definition: dict, state: str) -> dict:
+def request_decision(definition: dict, state: str, working_directory: Path | None = None) -> dict:
     """执行一次 JEV 请求并返回已解码的对象，供 CLI 与 Hook 共用。"""
     payload = {
         "model": definition.get("model", "typesafe/jev-1.13"),
         "state": state,
         "questions": definition["questions"],
     }
-    key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    # 凭据只允许来自当前项目配置，避免环境继承导致跨项目误用 Key。
+    key = openrouter_api_key(working_directory)
     if not key:
-        raise RuntimeError("未设置 OPENROUTER_API_KEY")
+        raise RuntimeError(
+            "OpenRouter API key is not configured: set "
+            "<project>/.agents/wttch/config.yml openrouter.api_key"
+        )
     request = Request(
         os.environ.get("JEV_OPENROUTER_DECISIONS_URL", DEFAULT_ENDPOINT),
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
@@ -100,7 +106,7 @@ def run(decision: Path, request_input: dict) -> int:
     state = request_input.get("state")
     if not isinstance(state, str):
         raise ValueError("JEV 输入必须包含字符串字段 state")
-    print(json.dumps(request_decision(definition, state), ensure_ascii=False))
+    print(json.dumps(request_decision(definition, state, Path.cwd()), ensure_ascii=False))
     return 0
 
 

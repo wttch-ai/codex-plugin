@@ -275,10 +275,9 @@ openrouter:
   api_key: "sk-or-v1-..."
 ```
 
-`.agents/wttch/config.yml` 应由项目 `.gitignore` 忽略，不应提交。运行时优先读取
-`OPENROUTER_API_KEY` 环境变量；该变量为空时，Wttch 插件的 Hook 读取事件 `cwd`
-目录中的此文件，Wttch 插件的普通 Skill 运行时脚本读取其进程工作目录中的此文件。
-其他插件不会自动读取该配置。这使临时密钥和 CI 配置可以覆盖本机文件。
+`.agents/wttch/config.yml` 应由项目 `.gitignore` 忽略，不应提交。Wttch 插件只从该
+项目文件读取 `openrouter.api_key`：Hook 使用事件 `cwd`，普通 Skill 运行时脚本使用其
+进程工作目录。其他插件不会自动读取该配置。
 
 模型、API 地址和超时仍通过以下环境变量配置：
 

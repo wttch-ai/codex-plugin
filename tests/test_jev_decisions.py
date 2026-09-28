@@ -45,7 +45,7 @@ class JEVDecisionTypeTests(unittest.TestCase):
             "on_review": {"action": "block", "reason": "请确认：{reasons}"},
         }}
         with patch.object(jev_prompt_hook, "request_decision", return_value={"answers": {"scope": {"probability": 0.79}}}) as request:
-            reason, context = jev_prompt_hook.evaluate_definition(definition, "修复 ParserTest")
+            reason, context = jev_prompt_hook.evaluate_definition(definition, "修复 ParserTest", ROOT)
         self.assertEqual(reason, "请确认：scope.probability 低于 0.8")
         self.assertIsNone(context)
         self.assertEqual(request.call_count, 1)
@@ -55,7 +55,7 @@ class JEVDecisionTypeTests(unittest.TestCase):
             "pattern": r"^route:(work_task)$", "context": "selected {0}",
         }}}
         with patch.object(jev_prompt_hook, "request_decision") as request:
-            reason, context = jev_prompt_hook.evaluate_definition(definition, "route:work_task")
+            reason, context = jev_prompt_hook.evaluate_definition(definition, "route:work_task", ROOT)
         self.assertIsNone(reason)
         self.assertEqual(context, "selected work_task")
         request.assert_not_called()

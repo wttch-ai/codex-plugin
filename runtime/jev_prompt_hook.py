@@ -99,7 +99,9 @@ def confirmed(text: str, hook: dict[str, Any]) -> str | None:
     return context.format(*match.groups(), **match.groupdict())
 
 
-def evaluate_definition(definition: dict[str, Any], text: str) -> tuple[str | None, str | None]:
+def evaluate_definition(
+    definition: dict[str, Any], text: str, working_directory: Path
+) -> tuple[str | None, str | None]:
     hook = definition["hook"]
     confirmation_context = confirmed(text, hook)
     if confirmation_context:
@@ -108,7 +110,7 @@ def evaluate_definition(definition: dict[str, Any], text: str) -> tuple[str | No
     # 每个 question 均以独立请求执行；不把某一题的输出传给其它题。
     for name, question in definition["questions"].items():
         single = {**definition, "questions": {name: question}}
-        answers[name] = answer_for(request_decision(single, text), name)
+        answers[name] = answer_for(request_decision(single, text, working_directory), name)
     reasons = review_reasons(definition, answers)
     if not reasons:
         return None, None
@@ -130,7 +132,7 @@ def evaluate(event: dict[str, Any]) -> dict[str, Any] | None:
     cwd = Path(cwd_value) if isinstance(cwd_value, str) and cwd_value.strip() else Path.cwd()
     contexts: list[str] = []
     for definition in project_hook_decisions(cwd):
-        reason, context = evaluate_definition(definition, text)
+        reason, context = evaluate_definition(definition, text, cwd)
         if reason:
             return block(reason)
         if context:
