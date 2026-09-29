@@ -6,9 +6,6 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any
-
-from settings import settings_path
 from wttch_config import configured_fields
 
 
@@ -18,25 +15,10 @@ CONFIGURATION_ENVIRONMENT_VARIABLES = (
     "JEV_OPENROUTER_MODEL",
     "JEV_OPENROUTER_BASE_URL",
     "JEV_OPENROUTER_TIMEOUT",
-    "WTTCH_PLUGIN_SETTINGS_FILE",
     "WTTCH_PLUGIN_AUDIT_LOG",
     # 只展示变量名称，不读取或输出日志路径中的内容。
     "WTTCH_PLUGIN_OPERATION_LOG",
 )
-
-
-def setting_overrides() -> list[str]:
-    """返回设置文件中显式保存的功能开关名，不读取或输出其值。"""
-    path = settings_path()
-    if not path.is_file():
-        return []
-    data: Any = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or not isinstance(data.get("features"), dict):
-        raise ValueError(f"settings file is invalid: {path}")
-    keys = data["features"].keys()
-    if not all(isinstance(key, str) for key in keys):
-        raise ValueError("settings file feature keys must be strings")
-    return sorted(keys)
 
 
 def configured_environment_variables() -> list[str]:
@@ -53,7 +35,6 @@ def report(working_directory: Path | None = None) -> dict[str, list[str]]:
     return {
         "working_directory_config_fields": configured_fields(working_directory),
         "environment_variables": configured_environment_variables(),
-        "plugin_setting_overrides": setting_overrides(),
     }
 
 

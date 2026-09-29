@@ -55,14 +55,16 @@ def response(action: str, rule: dict[str, str]) -> dict[str, Any]:
     message = f"forbidden-server: 命中 {rule['target']}（{rule['description']}），规则为 {action}。"
     if action == "block":
         return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": message}}
-    return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow", "additionalContext": message}}
+    # A PreToolUse hook continues by omitting permissionDecision.  Codex only
+    # accepts an explicit "allow" when it accompanies an updatedInput rewrite.
+    return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": message}}
 
 
 def evaluate(event: dict[str, Any]) -> dict[str, Any]:
     text = event_text(event)
     matches = [rule for rule in load_rules(event) if rule["target"] in text]
     if not matches:
-        return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow"}}
+        return {"hookSpecificOutput": {"hookEventName": "PreToolUse"}}
     # A block always takes precedence when one call matches multiple rules.
     matched = next((rule for rule in matches if rule["action"] == "block"), matches[0])
     return response(matched["action"], matched)

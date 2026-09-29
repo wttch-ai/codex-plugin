@@ -27,10 +27,9 @@ def deny(reason: str) -> dict[str, Any]:
 
 
 def allow(context: str | None = None) -> dict[str, Any]:
-    """构造允许响应；可选上下文只用于向调用方说明决策来源。"""
+    """Construct a non-blocking response, optionally with model-visible context."""
     output: dict[str, Any] = {
         "hookEventName": "PreToolUse",
-        "permissionDecision": "allow",
     }
     if context:
         output["additionalContext"] = context
@@ -47,7 +46,7 @@ def record_audit(
         "tool_name": event.get("tool_name"),
         "rule_id": rule.get("id", "unknown"),
         "policy_action": rule.get("action"),
-        "decision": output.get("permissionDecision"),
+        "decision": output.get("permissionDecision", "allow"),
         "reason": output.get("permissionDecisionReason")
         or output.get("additionalContext"),
     }
@@ -116,6 +115,6 @@ def evaluate(policy: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
     record_operation("jev_gate", details={
         "tool_name": event.get("tool_name"),
         "rule_id": rule.get("id", "unknown"),
-        "decision": result["hookSpecificOutput"].get("permissionDecision"),
+        "decision": result["hookSpecificOutput"].get("permissionDecision", "allow"),
     })
     return result

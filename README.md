@@ -94,8 +94,8 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 
 ### 插件信息
 
-`plugin-info` Skill 显示工作目录配置字段、已设置的 Wttch 环境变量名称和显式保存的
-功能开关名称。它不显示任何配置值，包括 API Key、模型标识和功能开关值。
+`plugin-info` Skill 显示工作目录配置字段和已设置的 Wttch 环境变量名称。它不显示任何
+配置值，包括 API Key、模型标识和功能开关值。
 
 ## 目录结构
 
@@ -103,11 +103,10 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 .
 ├── .codex-plugin/plugin.json         # Codex 插件清单
 ├── .agents/plugins/marketplace.json  # Codex marketplace 入口
-├── config/features.json              # 本机功能开关清单
 ├── hooks/hooks.json                  # 生命周期 Hooks
 ├── runtime/bootstrap.py              # 环境检查、创建和依赖同步
 ├── runtime/plugin_info.py             # 不含值的本机配置索引
-├── runtime/settings.py               # 本机功能开关
+├── runtime/settings.py               # 项目功能设置读取与校验
 ├── runtime/operation_log.py          # 统一操作日志和查询
 ├── runtime/wttch_config.py            # Wttch 工作目录配置读取
 ├── runtime/model_gate.py             # 模型 Gate
@@ -290,31 +289,26 @@ questions:
 
 ## 功能开关
 
-`plugin-settings` Skill 通过共享 runtime 管理本机设置：
+功能开关只从调用项目的 `.agents/wttch/config.yml` 读取；没有本机设置文件、插件内
+默认值或覆盖优先级。使用 `wttch-config-example.yml` 作为完整模板，并在项目配置中
+直接修改：
 
-```bash
-python3 runtime/settings.py list-settings
-python3 runtime/settings.py set-setting jev_gate off
-python3 runtime/settings.py set-setting audit_log on
-python3 runtime/settings.py set-setting model_gate on
-python3 runtime/settings.py set-setting blocked_models 'gpt-6-luna,gpt-6-sol,gpt-6-astra'
-python3 runtime/settings.py set-setting model_gate_action warn
-python3 runtime/settings.py reset-settings
+```yaml
+features:
+  jev_gate: true
+  openrouter_review: true
+  show_decision_reason: true
+  audit_log: false
+  model_gate: true
+  model_gate_action: block # block 或 warn
+  blocked_models:
+    - gpt-6-luna
 ```
 
-`model_gate_action` 支持 `block` 和 `warn`。
-
-插件设置以注册表形式统一维护在 `config/features.json`。每个注册项包含
-`key`、显示名称、说明、类型、默认值，以及可选的 `choices`。`settings.py`
-会自动校验注册项，并让 `list-settings` 和 `plugin-settings` Skill 发现和显示
-所有已注册设置。用户覆盖值保存在：
-
-```text
-~/.config/wttch-codex-plugin/settings.json
-```
-
-新增开关时，应同时登记 `key`、名称、说明和默认值，并在对应 runtime 中
-读取它；不要创建没有调用方的空开关。
+所有已知功能键都必须在 `features` 中出现，运行时会校验类型和未知键。可用
+`python3 runtime/settings.py list-settings` 只读检查当前项目配置。若某项配置只适用于
+一个功能模块，不要扩展通用 `features`；在该模块的项目目录下新增其专属 YAML，并由该
+模块显式读取和校验。
 
 ## 验证和测试
 

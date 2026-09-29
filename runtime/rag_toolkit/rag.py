@@ -26,7 +26,6 @@ import sqlite3
 import sys
 import urllib.request
 import urllib.error
-import yaml
 from datetime import datetime, timedelta
 
 # ---------------------------------------------------------------- 常量
@@ -97,23 +96,33 @@ def default_scope():
     return available_scope_keys()[0]
 
 
-SCOPES = available_scope_keys()
+SCOPES = ["project"]
 
 
 def _bootstrap():
-    """Load optional dependencies from the plugin bootstrap environment.
+    """Re-exec direct CLI calls through the plugin's shared environment."""
+    venv_python = os.path.join(
+        PLUGIN_ROOT,
+        ".venv",
+        "Scripts" if os.name == "nt" else "bin",
+        "python.exe" if os.name == "nt" else "python",
+    )
+    if os.path.normcase(os.path.abspath(sys.executable)) != os.path.normcase(os.path.abspath(venv_python)):
+        bootstrap = os.path.join(PLUGIN_ROOT, "runtime", "bootstrap.py")
+        os.execv(sys.executable, [sys.executable, bootstrap, __file__, *sys.argv[1:]])
 
-    The plugin owns its shared virtual environment; a project must not create
-    or reuse a RAG-specific venv next to its database.
-    """
     try:
         import sqlite_vec  # noqa: F401
         globals()["sqlite_vec"] = sqlite_vec  # 绑定到模块级，供各命令使用
     except ImportError:
-        sys.exit("错误：未找到 sqlite-vec，请先执行 uv venv .venv && uv pip install -r requirements.txt")
+        sys.exit("错误：插件共享环境中未找到 sqlite-vec；请运行 runtime/bootstrap.py 以同步 requirements.txt")
 
 
 _bootstrap()
+
+import yaml
+
+SCOPES = available_scope_keys()
 
 
 def _force_utf8():

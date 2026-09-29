@@ -36,19 +36,28 @@ class BootstrapTests(unittest.TestCase):
     def test_settings_values_are_loaded_from_project_config(self) -> None:
         config = self.root / ".agents" / "wttch" / "config.yml"
         config.parent.mkdir(parents=True)
-        config.write_text("features:\n  model_gate: false\n", encoding="utf-8")
+        config.write_text(
+            "features:\n"
+            "  jev_gate: true\n"
+            "  openrouter_review: true\n"
+            "  show_decision_reason: true\n"
+            "  audit_log: false\n"
+            "  model_gate: false\n"
+            "  model_gate_action: block\n"
+            "  blocked_models: [gpt-6-luna]\n",
+            encoding="utf-8",
+        )
         loaded, catalog = settings.load_settings(self.root)
 
         self.assertFalse(loaded["model_gate"])
         self.assertIn("model_gate", catalog)
 
-    def test_setting_value_parser_handles_common_inputs(self) -> None:
-        catalog = settings.load_feature_catalog()
-        self.assertFalse(settings.parse_setting_value(catalog["model_gate"], "off"))
-        self.assertEqual(
-            settings.parse_setting_value(catalog["blocked_models"], "gpt-6-luna,gpt-6-sol"),
-            ["gpt-6-luna", "gpt-6-sol"],
-        )
+    def test_settings_require_all_project_feature_values(self) -> None:
+        config = self.root / ".agents" / "wttch" / "config.yml"
+        config.parent.mkdir(parents=True)
+        config.write_text("features:\n  model_gate: false\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "missing feature"):
+            settings.load_settings(self.root)
 
 
 if __name__ == "__main__":

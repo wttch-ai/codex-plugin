@@ -1,172 +1,72 @@
 #!/usr/bin/env python3
-"""读取和更新 Wttch 插件功能设置。"""
+"""读取项目 ``.agents/wttch/config.yml`` 中的 Wttch 功能设置。"""
 
 from __future__ import annotations
 
 import argparse
 import json
 import os
-import re
 from pathlib import Path
 from typing import Any
 
-# 设置命令本身也纳入统一日志，查询命令除外，避免查询一次就产生新的查询记录。
 from operation_log import log_path, query as query_operations, record as record_operation
-# 所有静态路径来自同一模块；环境变量覆盖仍由各自的路径函数处理。
-from paths import DEFAULT_AUDIT_LOG_PATH, DEFAULT_SETTINGS_PATH, FEATURE_CATALOG_PATH
-from wttch_config import load_config
+from paths import DEFAULT_AUDIT_LOG_PATH
+from wttch_config import CONFIG_PATH, load_config
 
 
-def settings_path() -> Path:
-    """返回本机设置文件位置，测试或自动化可通过环境变量覆盖默认路径。"""
-    override = os.environ.get("WTTCH_PLUGIN_SETTINGS_FILE", "").strip()
-    if override:
-        return Path(override).expanduser()
-    return DEFAULT_SETTINGS_PATH
+# 此处只描述 YAML 结构，不保存任何配置值或默认值；功能值必须来自调用项目。
+FEATURE_SCHEMA: dict[str, dict[str, Any]] = {
+    "jev_gate": {"type": "boolean"},
+    "openrouter_review": {"type": "boolean"},
+    "show_decision_reason": {"type": "boolean"},
+    "audit_log": {"type": "boolean"},
+    "model_gate": {"type": "boolean"},
+    "model_gate_action": {"type": "string", "choices": ["block", "warn"]},
+    "blocked_models": {"type": "string_list"},
+}
 
 
 def audit_log_path() -> Path:
     """返回本机 JSONL 审计日志位置，支持用环境变量隔离测试数据。"""
     override = os.environ.get("WTTCH_PLUGIN_AUDIT_LOG", "").strip()
-    if override:
-        return Path(override).expanduser()
-    return DEFAULT_AUDIT_LOG_PATH
-
-
-def valid_default(entry: dict[str, Any]) -> bool:
-    """校验功能目录中的默认值是否符合其声明类型和候选值范围。"""
-    feature_type = entry.get("type")
-    default = entry.get("default")
-    if feature_type == "boolean":
-        return isinstance(default, bool)
-    if feature_type == "string_list":
-        return isinstance(default, list) and all(isinstance(item, str) for item in default)
-    if feature_type == "string":
-        choices = entry.get("choices", [])
-        return isinstance(default, str) and (not choices or default in choices)
-    return False
-
-
-def load_feature_catalog(path: Path = FEATURE_CATALOG_PATH) -> dict[str, dict[str, Any]]:
-    """读取功能目录，并在合并用户设置前严格校验其结构。
-
-    目录是所有可接受配置的唯一来源；尽早拒绝无效键、重复键和无效默认值，可避免
-    错误配置在 Hook 执行期间产生不确定行为。
-    """
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or data.get("version") != 1:
-        raise ValueError("feature catalog version must be 1")
-    entries = data.get("features")
-    if not isinstance(entries, list):
-        raise ValueError("feature catalog requires a features array")
-    catalog: dict[str, dict[str, Any]] = {}
-    for index, entry in enumerate(entries):
-        if not isinstance(entry, dict):
-            raise ValueError(f"features[{index}] must be an object")
-        key = entry.get("key")
-        if not isinstance(key, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", key):
-            raise ValueError(f"features[{index}].key is invalid")
-        if key in catalog:
-            raise ValueError(f"duplicate feature key: {key}")
-        if not valid_default(entry):
-            raise ValueError(f"feature {key} has an unsupported type or invalid default")
-        if not isinstance(entry.get("label"), str) or not isinstance(
-            entry.get("description"), str
-        ):
-            raise ValueError(f"feature {key} requires label and description")
-        catalog[key] = entry
-    return catalog
-
-
-def clone_default(value: Any) -> Any:
-    """复制可变默认值，避免调用方修改列表后污染后续加载结果。"""
-    return list(value) if isinstance(value, list) else value
+    return Path(override).expanduser() if override else DEFAULT_AUDIT_LOG_PATH
 
 
 def valid_value(entry: dict[str, Any], value: Any) -> bool:
-    """根据目录条目的类型约束校验一个实际设置值。"""
+    """校验项目 YAML 中的单个功能值。"""
     if entry["type"] == "boolean":
         return isinstance(value, bool)
     if entry["type"] == "string_list":
         return isinstance(value, list) and all(isinstance(item, str) for item in value)
     if entry["type"] == "string":
-        choices = entry.get("choices", [])
-        return isinstance(value, str) and (not choices or value in choices)
+        return isinstance(value, str) and value in entry.get("choices", [])
     return False
 
 
 def load_settings(working_directory: Path | None = None) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
-    """以目录默认值为基线，读取项目 ``config.yml`` 中的 features 覆盖项。"""
-    catalog = load_feature_catalog()
-    values = {key: clone_default(entry["default"]) for key, entry in catalog.items()}
+    """只从调用项目的 ``.agents/wttch/config.yml`` 读取并校验功能设置。"""
     data = load_config(working_directory)
-    overrides = data.get("features", {})
-    if not isinstance(overrides, dict):
-        raise ValueError(".agents/wttch/config.yml features must be an object")
-    for key, value in overrides.items():
-        if key not in catalog:
-            raise ValueError(f"unknown feature in .agents/wttch/config.yml: {key}")
-        if not valid_value(catalog[key], value):
-            raise ValueError(f"feature {key} has an invalid value")
-        values[key] = value
-    return values, catalog
-
-
-def write_settings(values: dict[str, Any]) -> None:
-    """原子替换本机设置文件，避免进程中断留下半个 JSON 文件。"""
-    path = settings_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(
-        json.dumps({"version": 1, "features": values}, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    # 同目录内的 replace 是原子操作，读者只能看到旧文件或完整的新文件。
-    temporary.replace(path)
-
-
-def parse_boolean(value: str) -> bool:
-    """把命令行中常用的布尔拼写转换为 Python 布尔值。"""
-    normalized = value.strip().lower()
-    if normalized in {"true", "on", "yes", "1", "enable", "enabled"}:
-        return True
-    if normalized in {"false", "off", "no", "0", "disable", "disabled"}:
-        return False
-    raise ValueError("value must be on/off or true/false")
-
-
-def parse_setting_value(entry: dict[str, Any], value: str) -> Any:
-    """按功能类型解析命令行值，并在写入前校验候选值。"""
-    if entry["type"] == "boolean":
-        return parse_boolean(value)
-    if entry["type"] == "string_list":
-        stripped = value.strip()
-        if stripped.startswith("["):
-            # 列表以 JSON 形式提供时可保留包含逗号的单个元素。
-            parsed = json.loads(stripped)
-            if not valid_value(entry, parsed):
-                raise ValueError("value must be a JSON array of strings")
-            return parsed
-        return [item.strip() for item in stripped.split(",") if item.strip()]
-    if entry["type"] == "string":
-        stripped = value.strip().lower()
-        if not valid_value(entry, stripped):
-            choices = ", ".join(entry.get("choices", []))
-            raise ValueError(f"value must be one of: {choices}")
-        return stripped
-    raise ValueError(f"unsupported setting type: {entry['type']}")
+    values = data.get("features")
+    config_path = (working_directory or Path.cwd()) / CONFIG_PATH
+    if not isinstance(values, dict):
+        raise ValueError(f"{config_path} features must be an object")
+    unexpected = set(values) - set(FEATURE_SCHEMA)
+    if unexpected:
+        raise ValueError(f"unknown feature in {config_path}: {sorted(unexpected)[0]}")
+    missing = set(FEATURE_SCHEMA) - set(values)
+    if missing:
+        raise ValueError(f"missing feature in {config_path}: {sorted(missing)[0]}")
+    for key, value in values.items():
+        if not valid_value(FEATURE_SCHEMA[key], value):
+            raise ValueError(f"feature {key} has an invalid value in {config_path}")
+    return dict(values), FEATURE_SCHEMA
 
 
 def main(argv: list[str]) -> int:
-    """提供列出、更新和恢复本机功能设置的命令行入口。"""
+    """提供只读设置和操作日志查询入口。"""
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("list-settings")
-    set_parser = subparsers.add_parser("set-setting")
-    set_parser.add_argument("key")
-    set_parser.add_argument("value")
-    subparsers.add_parser("reset-settings")
-    # 独立的查询子命令只读日志，不改变设置文件或 Gate 行为。
     query_parser = subparsers.add_parser("query-log")
     query_parser.add_argument("--operation")
     query_parser.add_argument("--result")
@@ -174,46 +74,13 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "list-settings":
-        values, catalog = load_settings()
-        # 只记录“列出设置”这一操作，不把设置值写入日志。
+        values, _ = load_settings()
         record_operation("settings.list")
-        print(
-            json.dumps(
-                {
-                    "settings_file": str(settings_path()),
-                    "features": [
-                        {**entry, "value": values[key]}
-                        for key, entry in catalog.items()
-                    ],
-                },
-                ensure_ascii=False,
-                indent=2,
-            )
-        )
+        print(json.dumps({"config_file": str(Path.cwd() / CONFIG_PATH), "features": values}, ensure_ascii=False, indent=2))
         return 0
-    if args.command == "set-setting":
-        values, catalog = load_settings()
-        if args.key not in catalog:
-            raise ValueError(f"unknown feature: {args.key}")
-        values[args.key] = parse_setting_value(catalog[args.key], args.value)
-        write_settings(values)
-        # 记录键名用于审计，但不记录新旧值，避免泄露用户配置。
-        record_operation("settings.set", details={"key": args.key})
-        print(json.dumps({"ok": True, "key": args.key, "value": values[args.key]}))
-        return 0
-    if args.command == "query-log":
-        # 返回日志位置和筛选后的记录，方便 Skill 或用户直接消费 JSON。
-        print(json.dumps({"log_file": str(log_path()), "entries": query_operations(
-            operation=args.operation, result=args.result, limit=args.limit
-        )}, ensure_ascii=False, indent=2))
-        return 0
-    # reset-settings 不依赖旧文件内容，直接用当前目录中的默认值完整覆盖。
-    catalog = load_feature_catalog()
-    values = {key: clone_default(entry["default"]) for key, entry in catalog.items()}
-    write_settings(values)
-    # 重置不记录具体默认值，因为默认值可能包含用户自定义模型清单。
-    record_operation("settings.reset")
-    print(json.dumps({"ok": True, "features": values}, ensure_ascii=False))
+    print(json.dumps({"log_file": str(log_path()), "entries": query_operations(
+        operation=args.operation, result=args.result, limit=args.limit
+    )}, ensure_ascii=False, indent=2))
     return 0
 
 

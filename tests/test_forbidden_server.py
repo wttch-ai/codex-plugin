@@ -31,7 +31,7 @@ class ForbiddenServerTests(unittest.TestCase):
 
     def test_warns_without_blocking(self) -> None:
         result = forbidden_server.evaluate({"cwd": str(self.root), "tool_input": {"url": "https://prod.example/api"}})
-        self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "allow")
+        self.assertNotIn("permissionDecision", result["hookSpecificOutput"])
         self.assertIn("additionalContext", result["hookSpecificOutput"])
 
     def test_block_precedes_warn(self) -> None:
