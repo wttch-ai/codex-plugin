@@ -87,17 +87,9 @@ def evaluate(policy: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
         try:
             approved, reason = review(rule, event)
         except Exception as exc:
-            # 网络、认证和模型返回格式错误都会进入这里，由策略明确选择失败语义。
-            if bool(policy["defaults"].get("fail_open", False)):
-                detail = f"JEV 审查不可用，已应用失败放行策略：{exc}"
-                result = allow(detail if settings["show_decision_reason"] else None)
-            else:
-                detail = f"JEV 审查失败，已应用失败关闭策略：{exc}"
-                result = deny(
-                    detail
-                    if settings["show_decision_reason"]
-                    else "JEV Gate 已拒绝该操作。"
-                )
+            # 依赖、网络或服务异常必须允许用户继续，并明确提示修复环境或服务。
+            detail = f"JEV 审查未执行：{exc}"
+            result = allow(detail if settings["show_decision_reason"] else None)
         else:
             if approved:
                 detail = f"JEV 已允许该操作：{reason}"

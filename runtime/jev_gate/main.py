@@ -8,8 +8,15 @@ import json
 import sys
 from pathlib import Path
 
-from .gate import evaluate
-from .policy import load_policy
+if __package__:
+    from .gate import allow, evaluate
+    from .policy import load_policy
+else:
+    # Hook runner 按脚本执行时，将 runtime 根目录加入导入路径。
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from jev_gate.gate import allow, evaluate
+    from jev_gate.policy import load_policy
+
 from paths import PLUGIN_ROOT
 
 
@@ -107,4 +114,11 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except Exception as exc:
+        # Hook 异常降级为警告；策略本身产生的 deny 仍由 evaluate 正常返回。
+        if "jev-gate" in sys.argv:
+            print(json.dumps(allow(f"JEV Gate 未执行：{exc}"), ensure_ascii=False))
+            raise SystemExit(0)
+        raise

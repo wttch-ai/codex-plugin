@@ -51,14 +51,14 @@ JEV 是独立 runtime，可发现插件内置决策以及当前项目的
 列出决策：
 
 ```bash
-python3 runtime/bootstrap.py runtime/jev/main.py list
+python3 runtime/jev/main.py list
 ```
 
 执行决策时，动态输入通过 JSON stdin 传入，避免命令行字符串注入：
 
 ```bash
 echo '{"state":"需要判断的动态输入"}' |
-python3 runtime/bootstrap.py runtime/jev/main.py run sample-choice
+python3 runtime/jev/main.py run sample-choice
 ```
 
 Hook 使用独立的 `skills/jev-gate/hook.yml` 配置，不会自动绑定 JEV 决策。
@@ -89,7 +89,7 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 项目 `.agents/wttch/config.yml` 统一配置 JEV Gate、模型 Gate、OpenRouter 审查、
 决策原因和审计日志。插件操作会自动记录到本机 JSONL 日志，
 可用 `python3 runtime/settings.py query-log` 查询，并可按操作类型和结果筛选。
-运行时诊断（包括 Python 虚拟环境准备失败）同时追加到用户状态目录下的
+运行时诊断同时追加到用户状态目录下的
 `runtime.log`；可通过 `WTTCH_PLUGIN_RUNTIME_LOG` 覆盖其路径。
 
 ### 插件信息
@@ -104,7 +104,7 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 ├── .codex-plugin/plugin.json         # Codex 插件清单
 ├── .agents/plugins/marketplace.json  # Codex marketplace 入口
 ├── hooks/hooks.json                  # 生命周期 Hooks
-├── runtime/bootstrap.py              # 环境检查、创建和依赖同步
+├── runtime/hook_runner.py            # Hook 异常降级为警告
 ├── runtime/plugin_info.py             # 不含值的本机配置索引
 ├── runtime/settings.py               # 项目功能设置读取与校验
 ├── runtime/operation_log.py          # 统一操作日志和查询
@@ -130,8 +130,7 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
     ├── plugin-settings/
     │   └── SKILL.md                  # 功能开关说明
     └── plugin-info/
-        ├── SKILL.md                  # 配置索引说明
-        └── agents/openai.yaml         # Skill 界面信息
+        └── SKILL.md                  # 插件辅助功能说明
 ```
 
 ### `PLUGIN_ROOT` 和插件清单
@@ -139,7 +138,7 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 `PLUGIN_ROOT` 表示插件根目录，也就是上面目录结构中的 `.`。它不是固定的
 本机路径：本地开发时通常是当前仓库目录；插件安装后则是 Codex 为该插件
 分配的安装或缓存目录。Hook 中的 `${PLUGIN_ROOT}` 由 Codex 自动替换，运行时
-代码则通过 `runtime/bootstrap.py` 的位置计算出同一个目录。
+代码则通过各运行时模块自身的位置计算出同一个目录。
 
 插件只保留 `.codex-plugin/plugin.json`，因为当前 Codex 的本地插件发现流程会
 优先使用这份兼容清单。它通过顶层 `hooks` 字段声明 `hooks/hooks.json`，并同时
@@ -159,78 +158,15 @@ Agent Plugins 格式解析，导致 `.codex-plugin/plugin.json` 中的 Hook 声�
 
 ## Python 运行时维护
 
-插件使用一个共享的 Python 虚拟环境。环境位于插件根目录下：
+插件直接使用系统 `python` 运行 Hook 和 Skill。不会创建虚拟环境、安装依赖，或在每次 Hook 时检查环境；启用前请由用户主动准备：
 
 ```text
-${PLUGIN_ROOT}/.venv/
+python -m pip install --requirement requirements.txt
 ```
 
-其中：
+Hook 通过轻量 `runtime/hook_runner.py` 调用目标脚本；它不做任何环境准备，只会将
+缺依赖、配置错误或运行异常转换为不阻断的 Hook 警告。
 
-- macOS/Linux 的解释器是 `${PLUGIN_ROOT}/.venv/bin/python`；
-- Windows 的解释器是 `${PLUGIN_ROOT}/.venv/Scripts/python.exe`；
-- `${PLUGIN_ROOT}/.venv/requirement.md5` 记录当前环境已经安装过的依赖指纹；
-- `${PLUGIN_ROOT}/.venv.bootstrap.lock/` 用于防止多个 Hook 同时初始化环境。
-
-Hook 不会直接运行各个 Gate 脚本，而是先运行 `runtime/bootstrap.py`。Bootstrap
-使用系统里的 Python 3 启动，完成环境检查后再切换到 `.venv` 中的 Python，执行
-指定的 Skill 脚本。
-
-每次 Hook 都会向 Hook 状态输出环境进度，典型状态包括：
-
-```text
-Wttch 环境：正在检查 Python 环境
-Wttch 环境：正在创建 Python 虚拟环境
-Wttch 环境：正在安装或更新 Python 依赖
-Wttch 环境：已就绪，依赖已同步
-```
-
-如果环境没有变化，则最后显示：
-
-```text
-Wttch 环境：已就绪，复用现有虚拟环境
-```
-
-两个 Hook 的界面状态提示也统一为“正在准备 Python 环境”；具体进度由
-Bootstrap 的状态输出提供。
-
-### 首次运行
-
-首次触发任意一个 Hook 时，Bootstrap 按以下顺序执行：
-
-1. 计算插件根目录 `requirements.txt` 的 MD5；
-2. 如果 `.venv` 或其中的 Python 解释器不存在，自动执行 `python -m venv .venv`；
-3. 执行 `.venv` 中的 `python -m pip install --requirement requirements.txt`；
-4. 安装成功后，将本次指纹写入 `.venv/requirement.md5`；
-5. 使用 `.venv` 中的 Python 执行对应的 Skill 脚本。
-
-插件会在会话启动、恢复或清空时自动预热 Python 环境，因此用户无需手动准备。
-模型 Gate 和 JEV Gate 仍保留 600 秒的初始化兜底等待；首次初始化完成后会直接
-复用该环境。
-
-如果自动准备失败，模型 Gate 和 JEV Gate 会阻止当前请求并提示下次请求将自动重试；
-会话预热则在界面显示同样的提示。环境准备失败不会让 Gate 静默失效。
-
-### 插件更新和依赖更新
-
-每次运行时都会比较两个指纹：
-
-```text
-插件根目录 requirements.txt 的实际指纹
-        与
-.venv/requirement.md5
-```
-
-- 指纹相同：直接复用现有环境，不重新安装依赖；
-- 指纹不同：重新执行 `pip install -r requirements.txt`，成功后更新虚拟环境中的指纹；
-- `.venv` 不存在、解释器丢失或指纹文件丢失：按首次运行流程修复；
-- 安装失败：不写入新指纹，下次运行会再次尝试；
-- 多个 Hook 同时启动：只有持有锁的进程负责初始化，其他进程等待初始化完成。
-
-更新 `requirements.txt` 后无需维护额外的发布指纹：Bootstrap 直接计算其内容指纹，
-与 `${PLUGIN_ROOT}/.venv/requirement.md5` 比较；不一致时自动执行
-`pip install -r requirements.txt`。`.venv`、`.venv.bootstrap.lock/` 和虚拟环境中的
-`requirement.md5` 都是运行时文件，不应提交到仓库。
 
 ## 配置 OpenRouter
 
@@ -315,21 +251,21 @@ features:
 检查 YAML 结构和正则表达式：
 
 ```bash
-python3 runtime/bootstrap.py runtime/jev_gate/main.py validate-jev-policy \
+python3 runtime/jev_gate/main.py validate-jev-policy \
   --policy skills/jev-gate/hook.yml
 ```
 
 列出独立 JEV 决策：
 
 ```bash
-python3 runtime/bootstrap.py runtime/jev/main.py list
+python3 runtime/jev/main.py list
 ```
 
 模拟一个应被拒绝的 `PreToolUse` 事件：
 
 ```bash
 printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"/workspace"}' \
-  | python3 runtime/bootstrap.py runtime/jev_gate/main.py jev-gate \
+  | python3 runtime/jev_gate/main.py jev-gate \
       --policy skills/jev-gate/hook.yml
 ```
 

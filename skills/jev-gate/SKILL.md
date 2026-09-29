@@ -16,14 +16,14 @@ JEV 决策文件位于本 skill 的 `decisions/*.yml`。每个文件定义一个
 列出当前项目决策：
 
 ```bash
-python3 "${PLUGIN_ROOT}/runtime/bootstrap.py" "${PLUGIN_ROOT}/runtime/jev/main.py" list
+python3 "${PLUGIN_ROOT}/runtime/jev/main.py" list
 ```
 
 执行指定决策时，将 Hook 事件 JSON 通过标准输入传入：
 
 ```bash
 echo '{"tool_name":"Bash","tool_input":{"command":"git status"}}' \
-python3 "${PLUGIN_ROOT}/runtime/bootstrap.py" "${PLUGIN_ROOT}/runtime/jev/main.py" \
+python3 "${PLUGIN_ROOT}/runtime/jev/main.py" \
   run <decision-name> <<'JSON'
 {"state":"本次执行的动态输入"}
 JSON
@@ -44,7 +44,7 @@ instead of adding a separate environment or dependency file to this skill.
 3. Validate the policy with:
 
    ```bash
-   python3 "${PLUGIN_ROOT}/runtime/bootstrap.py" "${PLUGIN_ROOT}/runtime/jev_gate/main.py" validate-jev-policy --policy "${PLUGIN_ROOT}/skills/jev-gate/gate.yml"
+   python3 "${PLUGIN_ROOT}/runtime/jev_gate/main.py" validate-jev-policy --policy "${PLUGIN_ROOT}/skills/jev-gate/gate.yml"
    ```
 
 4. Dry-run the hook by piping one `PreToolUse` JSON event into `jev-gate` on the

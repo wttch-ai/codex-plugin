@@ -80,9 +80,8 @@ def main() -> int:
         settings, _ = load_settings(working_directory)
         result = evaluate(event, settings)
     except Exception as exc:
-        # Hook 自身异常也必须阻止请求，避免配置或解析错误失去保护作用。
-        result = block(f"模型 Gate 运行失败，本轮请求已停止：{exc}")
-        # 异常分支统一记为 error，但仍输出原有失败关闭响应。
+        # 配置或依赖异常不应中断用户请求，保留可见警告以便用户修复。
+        result = warn(f"模型 Gate 未执行：{exc}")
         record_operation("model_gate", result="error")
     else:
         # result 为 None 代表没有命中限制，在日志中明确记为 allow。

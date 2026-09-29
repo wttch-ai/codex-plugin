@@ -1,14 +1,16 @@
 ---
 name: plugin-info
-description: 显示 Wttch 插件已配置的项目和来源，但不显示任何配置值或密钥。
+description: 查看 Wttch 插件配置来源，并在用户明确请求时同步或重装插件 Python 环境；不显示配置值或密钥。
 ---
 
-# Plugin Info
+# Plugin Utilities
+
+## 查看插件配置
 
 显示当前工作目录中 Wttch 插件的配置索引。运行共享 runtime：
 
 ```bash
-python3 "${PLUGIN_ROOT}/runtime/bootstrap.py" "${PLUGIN_ROOT}/runtime/plugin_info.py"
+python3 "${PLUGIN_ROOT}/runtime/plugin_info.py"
 ```
 
 输出中的字段含义如下：
@@ -18,3 +20,32 @@ python3 "${PLUGIN_ROOT}/runtime/bootstrap.py" "${PLUGIN_ROOT}/runtime/plugin_inf
 
 只报告输出中的名称和来源。不要读取、推断、回显或要求用户提供任何配置值，包括
 API Key、模型标识、地址、超时和功能开关值。
+
+## 准备 Python 环境
+
+仅当用户明确要求准备环境、安装依赖、修复缺包或重装依赖时执行。不要在 Hook 运行期间
+自动同步或安装。
+
+插件根目录由 Codex 注入的 `PLUGIN_ROOT` 环境变量确定，不依赖当前工作目录。
+
+首次准备、常规同步或依赖声明变更后，运行：
+
+```bash
+uv sync --project "${PLUGIN_ROOT}"
+```
+
+用户要求强制重装全部依赖时，运行：
+
+```bash
+uv sync --project "${PLUGIN_ROOT}" --reinstall
+```
+
+在 Windows PowerShell 中使用：
+
+```powershell
+uv sync --project $env:PLUGIN_ROOT
+uv sync --project $env:PLUGIN_ROOT --reinstall
+```
+
+同步成功后，插件环境位于 `${PLUGIN_ROOT}/.venv`。若 `uv` 未安装或同步失败，报告具体
+错误和下一步建议，但不要改用全局 `pip` 安装依赖。

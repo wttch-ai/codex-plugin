@@ -76,7 +76,7 @@ def main() -> int:
         print(json.dumps(evaluate(event), ensure_ascii=False))
         return 0
     except (ValueError, json.JSONDecodeError) as exc:
-        print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": f"forbidden-server 配置无效：{exc}"}}, ensure_ascii=False))
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": f"forbidden-server 未执行：{exc}"}}, ensure_ascii=False))
         return 0
 
 

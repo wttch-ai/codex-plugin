@@ -99,26 +99,16 @@ def default_scope():
 SCOPES = ["project"]
 
 
-def _bootstrap():
-    """Re-exec direct CLI calls through the plugin's shared environment."""
-    venv_python = os.path.join(
-        PLUGIN_ROOT,
-        ".venv",
-        "Scripts" if os.name == "nt" else "bin",
-        "python.exe" if os.name == "nt" else "python",
-    )
-    if os.path.normcase(os.path.abspath(sys.executable)) != os.path.normcase(os.path.abspath(venv_python)):
-        bootstrap = os.path.join(PLUGIN_ROOT, "runtime", "bootstrap.py")
-        os.execv(sys.executable, [sys.executable, bootstrap, __file__, *sys.argv[1:]])
-
+def _load_dependencies():
+    """从用户主动准备的系统 Python 环境加载可选依赖。"""
     try:
         import sqlite_vec  # noqa: F401
         globals()["sqlite_vec"] = sqlite_vec  # 绑定到模块级，供各命令使用
     except ImportError:
-        sys.exit("错误：插件共享环境中未找到 sqlite-vec；请运行 runtime/bootstrap.py 以同步 requirements.txt")
+        sys.exit("错误：当前 Python 环境未找到 sqlite-vec；请先执行 python -m pip install -r requirements.txt")
 
 
-_bootstrap()
+_load_dependencies()
 
 import yaml
 
