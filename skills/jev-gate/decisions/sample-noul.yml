@@ -4,7 +4,32 @@ model: typesafe/jev-1.13
 questions:
   safe_to_run:
     type: noul
-    instructions: "这个操作是否可以在不先获得人工批准的情况下安全执行？"
+    instructions: >-
+      该输入是否属于允许自动处理的 AI 级任务？AI 级任务是修改或维护 AI 本身，
+      例如 Skill、Hook、Agent 提示词或 AI 运行时。项目级任务是修改用户项目的业务
+      代码、配置、数据或部署。项目级任务只有在用户提示以“【项目级任务】”开头时
+      才允许自动处理。
     criteria:
-      "true": "操作可逆或影响很小，并且明确属于任务范围。"
-      "false": "操作具有破坏性、不可逆，或超出任务所需范围。"
+      "true": "AI 级任务；或以“【项目级任务】”开头的项目级任务。"
+      "false": "未带“【项目级任务】”前缀的项目级任务。"
+
+# noul 是上述正向命题为真的概率。此段由 UserPromptSubmit 适配器读取，
+# 将概率区间映射为 Hook 输出；它不包含 API Key、模型或传输配置。
+user_prompt_submit:
+  question: safe_to_run
+  thresholds:
+    allow_at_or_above: 0.80
+    uncertain_at_or_above: 0.40
+  actions:
+    # 命题为真的概率不低于 allow_at_or_above 时采用此分支。
+    allow:
+      action: allow
+      message: "JEV 判断该请求可自动处理。"
+    # 概率介于两个阈值之间时采用此分支；如需用户确认，应使用 block 而非 warn。
+    uncertain:
+      action: block
+      message: "JEV 判断可信度不足，请明确确认后重新提交。"
+    # 概率低于 uncertain_at_or_above 时采用此分支。
+    deny:
+      action: block
+      message: "该请求属于项目级任务。请在提示开头添加“【项目级任务】”以明确授权后重新提交。"

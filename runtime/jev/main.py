@@ -13,12 +13,72 @@ from urllib.request import Request, urlopen
 
 import yaml
 
+# 既支持 ``python runtime/jev/main.py``，也支持从 runtime 包导入。
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from wttch_config import load_config, openrouter_api_key
 
 
 BUILTIN_DECISION_ROOT = Path(__file__).resolve().parents[2] / "skills" / "jev-gate" / "decisions"
 PROJECT_DECISION_ROOT = Path(".agents") / "wttch" / "jev-decisions"
 DEFAULT_ENDPOINT = "https://openrouter.ai/api/alpha/decisions"
+USER_PROMPT_ACTIONS = {"allow", "warn", "block"}
+
+
+def validate_user_prompt_submit(definition: dict) -> None:
+    """校验可选的 UserPromptSubmit 分流配置。
+
+    ``noul`` 的值是命题为真的概率，因此该命题必须以“可安全自动处理”这类
+    正向形式描述。运行时可据此配置将高概率、待确认和低概率分别映射为 Hook
+    的 allow、warn 或 block 响应。
+    """
+    routing = definition.get("user_prompt_submit")
+    if routing is None:
+        return
+    if not isinstance(routing, dict):
+        raise ValueError("user_prompt_submit 必须是对象")
+
+    question_name = routing.get("question")
+    questions = definition["questions"]
+    if (
+        not isinstance(question_name, str)
+        or question_name not in questions
+        or questions[question_name].get("type") != "noul"
+    ):
+        raise ValueError("user_prompt_submit.question 必须引用一个 noul 问题")
+
+    thresholds = routing.get("thresholds")
+    if not isinstance(thresholds, dict):
+        raise ValueError("user_prompt_submit.thresholds 必须是对象")
+    allow_at = thresholds.get("allow_at_or_above")
+    uncertain_at = thresholds.get("uncertain_at_or_above")
+    if (
+        not isinstance(allow_at, (int, float))
+        or isinstance(allow_at, bool)
+        or not isinstance(uncertain_at, (int, float))
+        or isinstance(uncertain_at, bool)
+        or not 0 <= allow_at <= 1
+        or not 0 <= uncertain_at <= 1
+        or uncertain_at >= allow_at
+    ):
+        raise ValueError(
+            "user_prompt_submit 阈值必须在 0 到 1 之间，且 "
+            "uncertain_at_or_above 小于 allow_at_or_above"
+        )
+
+    actions = routing.get("actions")
+    if not isinstance(actions, dict) or set(actions) != {"allow", "uncertain", "deny"}:
+        raise ValueError("user_prompt_submit.actions 必须包含 allow、uncertain、deny")
+    for branch, output in actions.items():
+        if (
+            not isinstance(output, dict)
+            or set(output) != {"action", "message"}
+            or output["action"] not in USER_PROMPT_ACTIONS
+            or not isinstance(output["message"], str)
+            or not output["message"].strip()
+        ):
+            raise ValueError(
+                f"user_prompt_submit.actions.{branch} 必须包含有效的 action 和非空 message"
+            )
 
 
 def decision_files(cwd: Path | None = None) -> list[Path]:
@@ -45,6 +105,7 @@ def load_decision(path: Path) -> dict:
             raise ValueError(f"JEV 问题缺少 instructions：{name}")
         if not question.get("criteria"):
             raise ValueError(f"JEV 问题缺少 criteria：{name}")
+    validate_user_prompt_submit(data)
     return data
 
 

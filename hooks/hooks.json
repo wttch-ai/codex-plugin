@@ -8,6 +8,11 @@
             "type": "command",
             "command": "python ${PLUGIN_ROOT}/runtime/hook_runner.py UserPromptSubmit ${PLUGIN_ROOT}/runtime/model_gate.py",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "python ${PLUGIN_ROOT}/runtime/hook_runner.py UserPromptSubmit ${PLUGIN_ROOT}/runtime/prompt_jev_gate.py",
+            "timeout": 30
           }
         ]
       }

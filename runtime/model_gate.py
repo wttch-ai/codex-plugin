@@ -10,6 +10,8 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from pydantic import TypeAdapter
+
 from hooks import UserPromptSubmitInput, UserPromptSubmitOutput
 from settings import load_settings
 # 模型 Gate 记录最终决策，便于查询被阻止、警告或放行的请求数量。
@@ -85,7 +87,7 @@ def main() -> int:
             details={"decision": result.decision if result else "allow"},
         )
     if result is not None:
-        payload = {key: value for key, value in asdict(result).items() if value is not None}
+        payload = result.dump_json()
         print(json.dumps(payload, ensure_ascii=False))
     return 0
 

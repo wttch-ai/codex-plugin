@@ -206,6 +206,36 @@ Hook 专用配置位于 `skills/jev-gate/hook.yml`，只负责工具匹配和 Ho
 它与 JEV 决策定义分离。内置决策位于 `skills/jev-gate/decisions/*.yml`，项目级
 决策位于项目根目录的 `.agents/wttch/jev-decisions/*.yml`。
 
+对于需要绑定 `UserPromptSubmit` 的 `noul` 决策，可在决策文件顶层添加
+`user_prompt_submit`。该字段引用一个正向的 `noul` 问题（例如“是否可安全自动
+处理”），并在 YAML 中定义概率阈值和三个分支的 `allow`、`warn` 或 `block` 动作：
+
+`UserPromptSubmit` Hook 只会读取当前项目
+`.agents/wttch/jev-decisions/*.yml` 中的此类决策；插件自带的 `sample-*.yml`
+仅作为可复制模板，绝不会直接启用。每个项目最多配置一个此类决策。
+
+```yaml
+user_prompt_submit:
+  question: safe_to_run
+  thresholds:
+    allow_at_or_above: 0.80
+    uncertain_at_or_above: 0.40
+  actions:
+    allow:
+      action: allow
+      message: "JEV 判断该请求可自动处理。"
+    uncertain:
+      action: block
+      message: "JEV 判断可信度不足，请明确确认后重新提交。"
+    deny:
+      action: block
+      message: "JEV 判断该请求不适合自动处理。"
+```
+
+概率达到 `allow_at_or_above` 时走 `allow`；介于两个阈值之间走 `uncertain`；其余
+走 `deny`。若需要用户明确确认，中间分支应使用 `block`，而不是会继续当前请求的
+`warn`。
+
 JEV 决策示例：
 
 ```yaml

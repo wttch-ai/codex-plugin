@@ -1,3 +1,4 @@
+from pydantic import TypeAdapter
 from pydantic.dataclasses import dataclass
 from typing import Optional, Literal
 
@@ -90,3 +91,7 @@ class UserPromptSubmitOutput:
                 additionalContext=reason,
             ),
         )
+
+
+    def dump_json(self):
+        return TypeAdapter(UserPromptSubmitOutput).dump_json(self)
