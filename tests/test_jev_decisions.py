@@ -47,9 +47,9 @@ class JEVDecisionTypeTests(unittest.TestCase):
         self.assertEqual(branch_for_probability(routing, 0.80), "allow")
         self.assertEqual(branch_for_probability(routing, 0.40), "uncertain")
         self.assertEqual(branch_for_probability(routing, 0.39), "deny")
-        self.assertIsNone(response_for_probability(routing, 0.80))
+        self.assertIn("JEV 决策结果：allow；noul 可能性：80.0%", response_for_probability(routing, 0.80).systemMessage)
         self.assertEqual(response_for_probability(routing, 0.40).decision, "block")
-        self.assertEqual(response_for_probability(routing, 0.39).reason, "该请求属于项目级任务。请在提示开头添加“【项目级任务】”以明确授权后重新提交。")
+        self.assertIn("JEV 决策结果：deny；noul 可能性：39.0%", response_for_probability(routing, 0.39).reason)
 
     def test_user_prompt_submit_rejects_invalid_noul_response(self) -> None:
         response = {"answers": {"safe_to_run": {"noul": 0.5}}}

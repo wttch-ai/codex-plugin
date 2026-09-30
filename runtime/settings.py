@@ -48,8 +48,10 @@ def load_settings(working_directory: Path | None = None) -> tuple[dict[str, Any]
     data = load_config(working_directory)
     values = data.get("features")
     config_path = (working_directory or Path.cwd()) / CONFIG_PATH
+    # Project configuration is optional.  A malformed `features` value must
+    # not prevent hooks from running; fall back to the built-in defaults.
     if not isinstance(values, dict):
-        raise ValueError(f"{config_path} features must be an object")
+        return {}
     unexpected = set(values) - set(FEATURE_SCHEMA)
     if unexpected:
         raise ValueError(f"unknown feature in {config_path}: {sorted(unexpected)[0]}")

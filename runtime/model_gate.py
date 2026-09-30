@@ -14,6 +14,7 @@ from pydantic import TypeAdapter
 
 from hooks import UserPromptSubmitInput, UserPromptSubmitOutput
 from settings import load_settings
+from wttch_config import CONFIG_PATH
 # 模型 Gate 记录最终决策，便于查询被阻止、警告或放行的请求数量。
 from operation_log import record as record_operation
 
@@ -74,11 +75,23 @@ def main() -> int:
 
         cwd = event.cwd
         working_directory = Path(cwd) if isinstance(cwd, str) and cwd.strip() else None
-        settings, _ = load_settings(working_directory)
-        result = evaluate(event, settings)
+        config_path = (working_directory or Path.cwd()) / CONFIG_PATH
+        if not config_path.is_file():
+            result = UserPromptSubmitOutput.warn(
+                "Wttch 插件已启用 Hook，但当前项目尚未配置 "
+                ".agents/wttch/config.yml；模型 Gate 已忽略，本轮请求将继续。"
+                "助手指令：正常完成用户当前请求；在最终回复中简要告知用户，如需启用"
+                "模型 Gate，可在项目中创建 .agents/wttch/config.yml 并配置 features.model_gate。"
+            )
+        else:
+            settings, _ = load_settings(working_directory)
+            result = evaluate(event, settings)
     except Exception as exc:
-        # 配置、依赖或输入异常采用失败关闭策略，避免模型 Gate 被静默绕过。
-        result = UserPromptSubmitOutput.block(f"模型 Gate 未执行：{exc}")
+        # 配置错误不阻止用户修复或创建配置；向当前会话注入可见提示即可。
+        result = UserPromptSubmitOutput.warn(
+            f"模型 Gate 已忽略：{exc}。本轮请求将继续。"
+            "助手指令：正常完成用户当前请求；在最终回复中简要指出配置问题及修复路径。"
+        )
         record_operation("model_gate", result="error")
     else:
         # result 为 None 代表没有命中限制，在日志中明确记为 allow。

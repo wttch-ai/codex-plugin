@@ -58,24 +58,31 @@ def branch_for_probability(routing: dict[str, Any], probability: float) -> str:
 def response_for_probability(
     routing: dict[str, Any], probability: float
 ) -> UserPromptSubmitOutput | None:
-    """按 YAML 中配置的分支动作构造 Hook 响应。"""
-    output = routing["actions"][branch_for_probability(routing, probability)]
+    """按 YAML 中配置的分支动作构造 Hook 响应，并展示 JEV 判定。"""
+    branch = branch_for_probability(routing, probability)
+    output = routing["actions"][branch]
+    message = (
+        f"JEV 决策结果：{branch}；noul 可能性：{probability:.1%}。"
+        f"{output['message']}"
+    )
     if output["action"] == "allow":
-        return None
+        # allow 也必须输出判定信息；warn 不阻断请求，并会注入额外上下文。
+        return UserPromptSubmitOutput.warn(message)
     if output["action"] == "warn":
-        return UserPromptSubmitOutput.warn(output["message"])
-    return UserPromptSubmitOutput.block(output["message"])
+        return UserPromptSubmitOutput.warn(message)
+    return UserPromptSubmitOutput.block(message)
 
 
 def evaluate(event: UserPromptSubmitInput) -> UserPromptSubmitOutput | None:
     """仅在当前项目显式配置决策时调用 JEV。"""
     definition = find_project_decision(Path(event.cwd))
     if definition is None:
+        # 项目可自行决定是否启用 UserPromptSubmit JEV 决策；未配置时静默放行。
         return None
     routing = definition["user_prompt_submit"]
     response = request_decision(
         definition,
-        json.dumps({"prompt": event.prompt}, ensure_ascii=False),
+        json.dumps({"prompt": event.prompt}, ensure_ascii=True),
         Path(event.cwd),
     )
     probability = get_noul_probability(response, routing["question"])
