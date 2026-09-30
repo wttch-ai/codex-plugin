@@ -31,7 +31,7 @@ def main() -> int:
     except SystemExit as exc:
         return int(exc.code) if isinstance(exc.code, int) else 0
     except Exception as exc:
-        print(json.dumps(warning(hook_event, exc), ensure_ascii=False))
+        print(json.dumps(warning(hook_event, exc), ensure_ascii=True))
         return 0
     return 0
 

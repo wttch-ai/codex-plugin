@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 import json
 from pathlib import Path
 import sys
@@ -105,7 +104,7 @@ def main() -> int:
         result = UserPromptSubmitOutput.block(f"UserPrompt JEV Gate 未执行：{exc}")
         record_operation("prompt_jev_gate", result="error")
     if result is not None:
-        print(json.dumps({key: value for key, value in asdict(result).items() if value is not None}, ensure_ascii=False))
+        print(result.dump_json())
     return 0
 
 

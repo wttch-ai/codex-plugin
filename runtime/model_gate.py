@@ -87,8 +87,7 @@ def main() -> int:
             details={"decision": result.decision if result else "allow"},
         )
     if result is not None:
-        payload = result.dump_json()
-        print(json.dumps(payload, ensure_ascii=False))
+        print(result.dump_json())
     return 0
 
 

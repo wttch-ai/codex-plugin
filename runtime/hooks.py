@@ -1,6 +1,7 @@
-from pydantic import TypeAdapter
 from pydantic.dataclasses import dataclass
-from typing import Optional, Literal
+from dataclasses import asdict
+import json
+from typing import Any, Literal, Optional
 
 
 @dataclass
@@ -93,5 +94,16 @@ class UserPromptSubmitOutput:
         )
 
 
-    def dump_json(self):
-        return TypeAdapter(UserPromptSubmitOutput).dump_json(self)
+    def dump_json(self) -> str:
+        """返回可安全写入 Hook 标准输出的一行 JSON。
+
+        Hook 输入有时会含有 Windows 代理字符；使用 ASCII 转义避免 stdout 的 UTF-8
+        编码失败。意外的 bytes 值也会先解码，避免再次触发 JSON 序列化异常。
+        """
+        def json_default(value: Any) -> str:
+            if isinstance(value, bytes):
+                return value.decode("utf-8", errors="replace")
+            raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+        payload = {key: value for key, value in asdict(self).items() if value is not None}
+        return json.dumps(payload, ensure_ascii=True, default=json_default)
