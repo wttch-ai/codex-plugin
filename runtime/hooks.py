@@ -3,6 +3,8 @@ from dataclasses import asdict
 import json
 from typing import Any, Literal, Optional
 
+from notice import hook_notice
+
 
 @dataclass
 class CommonInput:
@@ -80,16 +82,17 @@ class UserPromptSubmitOutput:
     @staticmethod
     def block(reason: str) -> "UserPromptSubmitOutput":
         """构造阻止当前用户提示的 Hook 响应。"""
-        return UserPromptSubmitOutput(decision="block", reason=reason)
+        return UserPromptSubmitOutput(decision="block", reason=hook_notice(reason))
 
     @staticmethod
     def warn(reason: str) -> "UserPromptSubmitOutput":
         """构造继续请求、同时注入警告上下文的 Hook 响应。"""
+        message = hook_notice(reason)
         return UserPromptSubmitOutput(
-            systemMessage=reason,
+            systemMessage=message,
             hookSpecificOutput=UserPromptSubmitSpecificOutput(
                 hookEventName="UserPromptSubmit",
-                additionalContext=reason,
+                additionalContext=message,
             ),
         )
 

@@ -10,6 +10,8 @@ from typing import Any
 
 import yaml
 
+from notice import hook_notice
+
 
 CONFIG_RELATIVE_PATH = Path(".agents") / "wttch" / "forbidden-server.yml"
 VALID_ACTIONS = {"block", "warn"}
@@ -52,7 +54,9 @@ def event_text(event: dict[str, Any]) -> str:
 
 
 def response(action: str, rule: dict[str, str]) -> dict[str, Any]:
-    message = f"forbidden-server: 命中 {rule['target']}（{rule['description']}），规则为 {action}。"
+    message = hook_notice(
+        f"forbidden-server 命中 {rule['target']}（{rule['description']}），规则为 {action}。"
+    )
     if action == "block":
         return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": message}}
     # A PreToolUse hook continues by omitting permissionDecision.  Codex only
@@ -76,7 +80,7 @@ def main() -> int:
         print(json.dumps(evaluate(event), ensure_ascii=False))
         return 0
     except (ValueError, json.JSONDecodeError) as exc:
-        print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": f"forbidden-server 未执行：{exc}"}}, ensure_ascii=False))
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": hook_notice(f"forbidden-server 未执行：{exc}")}}, ensure_ascii=False))
         return 0
 
 

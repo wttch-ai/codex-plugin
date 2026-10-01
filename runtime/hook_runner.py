@@ -8,9 +8,11 @@ import runpy
 import sys
 from pathlib import Path
 
+from notice import hook_notice
+
 
 def warning(hook_event: str, error: Exception) -> dict[str, object]:
-    message = f"Wttch Hook 未执行：{error}。请在插件根目录运行 uv sync 以准备依赖。"
+    message = hook_notice(f"Wttch Hook 未执行：{error}。请在插件根目录运行 uv sync 以准备依赖。")
     if hook_event == "UserPromptSubmit":
         return {
             "systemMessage": message,

@@ -13,6 +13,7 @@ from .review import review
 from settings import audit_log_path, load_settings
 # 统一日志与可选的旧审计日志并行写入，兼容已有 audit_log 设置。
 from operation_log import record as record_operation
+from notice import hook_notice
 
 
 def deny(reason: str) -> dict[str, Any]:
@@ -21,7 +22,7 @@ def deny(reason: str) -> dict[str, Any]:
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
             "permissionDecision": "deny",
-            "permissionDecisionReason": reason,
+            "permissionDecisionReason": hook_notice(reason),
         }
     }
 
@@ -32,7 +33,7 @@ def allow(context: str | None = None) -> dict[str, Any]:
         "hookEventName": "PreToolUse",
     }
     if context:
-        output["additionalContext"] = context
+        output["additionalContext"] = hook_notice(context)
     return {"hookSpecificOutput": output}
 
 
