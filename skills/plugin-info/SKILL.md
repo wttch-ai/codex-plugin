@@ -1,6 +1,6 @@
 ---
 name: plugin-info
-description: 查看 Wttch 插件配置来源，并在用户明确请求时同步或重装插件 Python 环境；不显示配置值或密钥。
+description: 查看 Wttch 插件配置来源，并在用户明确请求时创建默认配置或同步插件 Python 环境；不显示配置值或密钥。
 ---
 
 # Plugin Utilities
@@ -20,6 +20,15 @@ python3 "${PLUGIN_ROOT}/runtime/plugin_info.py"
 
 只报告输出中的名称和来源。不要读取、推断、回显或要求用户提供任何配置值，包括
 API Key、模型标识、地址、超时和功能开关值。
+
+## 创建默认项目配置
+
+仅当用户明确要求创建、生成或初始化 Wttch 默认配置时执行。将
+`${PLUGIN_ROOT}/wttch-config-example.yml` 复制到当前项目的
+`.agents/wttch/config.yml`，并创建缺失的父目录。
+
+目标文件已存在时不要覆盖；报告它已存在，并让用户决定是否自行替换或修改。复制后只报告
+文件路径，并提醒用户将示例 API Key 替换为自己的值；不要读取、显示或要求用户提供该值。
 
 ## 准备 Python 环境
 

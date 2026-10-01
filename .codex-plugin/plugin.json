@@ -1,7 +1,7 @@
 {
   "name": "wttch-codex-plugin",
-  "version": "0.1.43",
-  "description": "Wttch 的私人 Codex 工具集，包含可复用的技能、Hook 和共享运行时。",
+  "version": "0.1.43+codex.20261001162147",
+  "description": "Wttch \u7684\u79c1\u4eba Codex \u5de5\u5177\u96c6\uff0c\u5305\u542b\u53ef\u590d\u7528\u7684\u6280\u80fd\u3001Hook \u548c\u5171\u4eab\u8fd0\u884c\u65f6\u3002",
   "author": {
     "name": "Wttch",
     "url": "https://wttch.com"
@@ -11,8 +11,8 @@
   "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "Wttch Codex Plugin",
-    "shortDescription": "Wttch 的私人 Codex 工具箱",
-    "longDescription": "一个可扩展的私人插件，将 Wttch 的可复用技能、生命周期 Hook、Gate 策略和共享 Python 运行时统一打包。",
+    "shortDescription": "Wttch \u7684\u79c1\u4eba Codex \u5de5\u5177\u7bb1",
+    "longDescription": "\u4e00\u4e2a\u53ef\u6269\u5c55\u7684\u79c1\u4eba\u63d2\u4ef6\uff0c\u5c06 Wttch \u7684\u53ef\u590d\u7528\u6280\u80fd\u3001\u751f\u547d\u5468\u671f Hook\u3001Gate \u7b56\u7565\u548c\u5171\u4eab Python \u8fd0\u884c\u65f6\u7edf\u4e00\u6253\u5305\u3002",
     "developerName": "Wttch",
     "websiteURL": "https://wttch.com",
     "category": "Developer Tools",
@@ -21,9 +21,9 @@
       "Read"
     ],
     "defaultPrompt": [
-      "显示 Wttch 插件中可用的技能。",
-      "使用 JEV Gate 技能解释一次策略决策。",
-      "帮我为这个插件添加一个可复用技能。"
+      "\u663e\u793a Wttch \u63d2\u4ef6\u4e2d\u53ef\u7528\u7684\u6280\u80fd\u3002",
+      "\u4f7f\u7528 JEV Gate \u6280\u80fd\u89e3\u91ca\u4e00\u6b21\u7b56\u7565\u51b3\u7b56\u3002",
+      "\u5e2e\u6211\u4e3a\u8fd9\u4e2a\u63d2\u4ef6\u6dfb\u52a0\u4e00\u4e2a\u53ef\u590d\u7528\u6280\u80fd\u3002"
     ]
   }
 }

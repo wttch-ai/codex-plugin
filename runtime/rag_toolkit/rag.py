@@ -105,7 +105,7 @@ def _load_dependencies():
         import sqlite_vec  # noqa: F401
         globals()["sqlite_vec"] = sqlite_vec  # 绑定到模块级，供各命令使用
     except ImportError:
-        sys.exit("错误：当前 Python 环境未找到 sqlite-vec；请先执行 python -m pip install -r requirements.txt")
+        sys.exit("错误：当前 Python 环境未找到 sqlite-vec；请先在插件根目录执行 uv sync")
 
 
 _load_dependencies()
@@ -405,8 +405,7 @@ def _langchain_splitters():
             globals()["_splitter_cache"] = (MarkdownHeaderTextSplitter,
                                             RecursiveCharacterTextSplitter)
         except ImportError:
-            sys.exit("错误：未找到 langchain-text-splitters，请先执行 "
-                     "uv venv .venv && uv pip install -r requirements.txt")
+            sys.exit("错误：未找到 langchain-text-splitters，请先在插件根目录执行 uv sync")
     return globals()["_splitter_cache"]
 
 
@@ -828,7 +827,7 @@ def cmd_check(args):
         print(f"sqlite-vec : {sqlite_vec.__version__ if hasattr(sqlite_vec, '__version__') else '已加载'}")
         print(f"vec0.dll   : {sqlite_vec.loadable_path()}.dll")
     except ImportError:
-        print("sqlite-vec : 未安装（请 uv venv .venv && uv pip install -r requirements.txt）")
+        print("sqlite-vec : 未安装（请在插件根目录执行 uv sync）")
         return
     # 验证扩展可加载
     try:
@@ -846,7 +845,7 @@ def cmd_check(args):
         import importlib.metadata as _md
         print(f"langchain : 已安装（text-splitters {_md.version('langchain-text-splitters')}）")
     except ImportError:
-        print("langchain : 未安装（ingest 需先执行 uv pip install -r requirements.txt）")
+        print("langchain : 未安装（ingest 需先在插件根目录执行 uv sync）")
     # Ollama
     try:
         models = ollama_models()

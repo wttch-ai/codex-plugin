@@ -5,15 +5,15 @@ Wttch 的私人 Codex 插件，用来集中维护可复用的 Skills、生命周
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.30`
+- 当前版本：`0.1.43`
 - 使用范围：私人插件
 
 ## 快速开始
 
-如果尚未配置 `wttch-ai` marketplace：
+注册本机仓库作为 `wttch-ai` marketplace：
 
 ```bash
-codex plugin marketplace add https://github.com/wttch-ai/codex-plugin.git
+codex plugin marketplace add /Users/wttch/workspace/AI/WttchCodexPlugin
 ```
 
 安装插件：
@@ -119,7 +119,8 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 │   ├── review.py                     # OpenRouter 审查
 │   └── gate.py                       # Gate 评估和审计
 ├── runtime/rag_toolkit/               # 插件代码；RAG 数据保留在调用项目内
-├── requirements.txt                  # Python 依赖
+├── pyproject.toml                    # Python 依赖与运行时要求
+├── uv.lock                           # 锁定的 Python 依赖版本
 ├── .agents/wttch/config.yml           # 项目 OpenRouter 配置（本地创建）
 └── skills/
     ├── README.md                     # Skill 开发约定
@@ -158,14 +159,14 @@ Agent Plugins 格式解析，导致 `.codex-plugin/plugin.json` 中的 Hook 声�
 
 ## Python 运行时维护
 
-插件直接使用系统 `python` 运行 Hook 和 Skill。不会创建虚拟环境、安装依赖，或在每次 Hook 时检查环境；启用前请由用户主动准备：
+插件使用项目虚拟环境运行 Python 依赖。启用前请主动同步环境：
 
-```text
-python -m pip install --requirement requirements.txt
+```bash
+uv sync
 ```
 
-Hook 通过轻量 `runtime/hook_runner.py` 调用目标脚本；它不做任何环境准备，只会将
-缺依赖、配置错误或运行异常转换为不阻断的 Hook 警告。
+`uv.lock` 固定实际安装版本。Hook 通过轻量 `runtime/hook_runner.py` 调用目标脚本；它不做
+环境准备，只会将缺依赖、配置错误或运行异常转换为不阻断的 Hook 警告。
 
 
 ## 配置 OpenRouter
@@ -308,14 +309,20 @@ printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"c
 
 ## 更新插件
 
-发布新版本后重新安装：
+本地修改会直接从此仓库加载；重新安装以刷新插件：
 
 ```bash
 codex plugin add wttch-codex-plugin@wttch-ai
 ```
 
-Codex 会按清单版本使用对应缓存。发布修复时应更新
-`.codex-plugin/plugin.json` 中的语义化版本号，避免继续使用旧缓存。
+若本机此前注册过同名的 Git marketplace，先切换到本地路径：
+
+```bash
+codex plugin marketplace remove wttch-ai
+codex plugin marketplace add /Users/wttch/workspace/AI/WttchCodexPlugin
+```
+
+`.codex-plugin/plugin.json` 的版本号仍应在发布版本时递增。
 
 ## Hook 发现兼容性
 
@@ -351,7 +358,7 @@ description: 说明这个 Skill 做什么，以及应在什么场景使用。
 ```
 
 如果多个 Skills 需要共享 Python 代码，应扩展根目录的 `runtime/`，并把
-第三方依赖加入根目录 `requirements.txt`；不要为每个 Skill 建立重复的
+第三方依赖加入根目录 `pyproject.toml`，然后运行 `uv lock` 更新 `uv.lock`；不要为每个 Skill 建立重复的
 虚拟环境。
 
 ## 发布新版本
@@ -359,9 +366,8 @@ description: 说明这个 Skill 做什么，以及应在什么场景使用。
 1. 更新 `.codex-plugin/plugin.json` 的语义化版本号；
 2. 验证插件 JSON、Hook JSON 和策略文件；
 3. 确认 Skills、Hooks、默认提示和主页信息完整；
-4. 提交并推送 marketplace 指向的仓库；
-5. 重新安装插件并检查状态；
-6. 在 Desktop 或 CLI 中使用新会话验证 Hook。
+4. 重新安装插件并检查状态；
+5. 在 Desktop 或 CLI 中使用新会话验证 Hook。
 
 ## 安全说明
 

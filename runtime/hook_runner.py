@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 def warning(hook_event: str, error: Exception) -> dict[str, object]:
-    message = f"Wttch Hook 未执行：{error}。请确认系统 Python 已安装 requirements.txt 中的依赖。"
+    message = f"Wttch Hook 未执行：{error}。请在插件根目录运行 uv sync 以准备依赖。"
     if hook_event == "UserPromptSubmit":
         return {
             "systemMessage": message,
