@@ -1,6 +1,6 @@
 {
   "name": "wttch-codex-plugin",
-  "version": "0.1.43+codex.20261005072940",
+  "version": "0.1.43+codex.20261008140832",
   "description": "Wttch \u7684\u79c1\u4eba Codex \u5de5\u5177\u96c6\uff0c\u5305\u542b\u53ef\u590d\u7528\u7684\u6280\u80fd\u3001Hook \u548c\u5171\u4eab\u8fd0\u884c\u65f6\u3002",
   "author": {
     "name": "Wttch",
