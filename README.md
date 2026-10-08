@@ -119,8 +119,8 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 │   ├── review.py                     # OpenRouter 审查
 │   └── gate.py                       # Gate 评估和审计
 ├── runtime/rag_toolkit/               # 插件代码；RAG 数据保留在调用项目内
-├── pyproject.toml                    # Python 依赖与运行时要求
-├── uv.lock                           # 锁定的 Python 依赖版本
+├── requirements.txt                  # 共享运行环境的 Python 依赖
+├── requirements.txt                  # 共享运行环境的 Python 依赖
 ├── .agents/wttch/config.yml           # 项目 OpenRouter 配置（本地创建）
 └── skills/
     ├── README.md                     # Skill 开发约定
@@ -159,14 +159,19 @@ Agent Plugins 格式解析，导致 `.codex-plugin/plugin.json` 中的 Hook 声�
 
 ## Python 运行时维护
 
-插件使用项目虚拟环境运行 Python 依赖。启用前请主动同步环境：
+Hook 入口使用系统默认的 `python` 启动轻量引导器，实际插件功能运行在固定的用户级
+虚拟环境 `~/.agents/wttch-runtime/.venv`。该环境不位于版本化插件缓存中，因此插件升级
+或重新安装时不会丢失。启用前请主动同步环境：
 
 ```bash
-uv sync
+python runtime/hook_runner.py --prepare
 ```
 
-`uv.lock` 固定实际安装版本。Hook 通过轻量 `runtime/hook_runner.py` 调用目标脚本；它不做
-环境准备，只会将缺依赖、配置错误或运行异常转换为不阻断的 Hook 警告。
+强制重装时运行 `python runtime/hook_runner.py --prepare --reinstall`。准备入口使用系统
+Python 的 `venv` 模块创建共享环境，再调用该虚拟环境自己的 `python -m pip` 安装
+`requirements.txt`，不会调用全局 `pip`。
+Hook 通过轻量 `runtime/hook_runner.py` 从系统默认 Python 转交到共享环境；它不做环境准备，
+只会将缺依赖、配置错误或运行异常转换为不阻断的 Hook 警告。
 
 
 ## 配置 OpenRouter
@@ -358,8 +363,8 @@ description: 说明这个 Skill 做什么，以及应在什么场景使用。
 ```
 
 如果多个 Skills 需要共享 Python 代码，应扩展根目录的 `runtime/`，并把
-第三方依赖加入根目录 `pyproject.toml`，然后运行 `uv lock` 更新 `uv.lock`；不要为每个 Skill 建立重复的
-虚拟环境。
+第三方依赖加入根目录 `requirements.txt`，再运行环境准备入口更新共享虚拟环境；不要为每个
+Skill 建立重复的虚拟环境。
 
 ## 发布新版本
 

@@ -10,6 +10,9 @@ from pathlib import Path
 
 # 插件根目录：由当前文件的位置反推出，不依赖启动命令的工作目录。
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+# 插件依赖环境独立于 Codex 的版本化插件缓存，升级或重装插件时可以复用。
+RUNTIME_ROOT = Path.home() / ".agents" / "wttch-runtime"
+RUNTIME_VENV = RUNTIME_ROOT / ".venv"
 # 兼容已有 JEV Gate 审计日志的默认位置；是否写入由 audit_log 开关控制。
 DEFAULT_AUDIT_LOG_PATH = Path.home() / ".local" / "state" / "wttch-codex-plugin" / "audit.jsonl"
 # 所有插件操作的统一 JSONL 日志位置；记录安全元数据，不记录敏感输入。

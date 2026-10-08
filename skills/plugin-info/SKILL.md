@@ -35,26 +35,28 @@ API Key、模型标识、地址、超时和功能开关值。
 仅当用户明确要求准备环境、安装依赖、修复缺包或重装依赖时执行。不要在 Hook 运行期间
 自动同步或安装。
 
-插件根目录由 Codex 注入的 `PLUGIN_ROOT` 环境变量确定，不依赖当前工作目录。
+插件根目录由 Codex 注入的 `PLUGIN_ROOT` 环境变量确定，不依赖当前工作目录。插件共享
+环境固定在 `~/.agents/wttch-runtime/.venv`，不会写入版本化的插件安装或缓存目录。
 
-首次准备、常规同步或依赖声明变更后，运行：
+首次准备、常规同步或依赖声明变更后，运行；该入口使用系统默认 Python 创建共享虚拟环境，
+再使用虚拟环境自己的 `python -m pip` 安装 `requirements.txt`，不修改全局 Python 包：
 
 ```bash
-uv sync --project "${PLUGIN_ROOT}"
+python "${PLUGIN_ROOT}/runtime/hook_runner.py" --prepare
 ```
 
 用户要求强制重装全部依赖时，运行：
 
 ```bash
-uv sync --project "${PLUGIN_ROOT}" --reinstall
+python "${PLUGIN_ROOT}/runtime/hook_runner.py" --prepare --reinstall
 ```
 
-在 Windows PowerShell 中使用：
+在 Windows PowerShell 中同样使用系统默认 Python：
 
 ```powershell
-uv sync --project $env:PLUGIN_ROOT
-uv sync --project $env:PLUGIN_ROOT --reinstall
+python "$env:PLUGIN_ROOT/runtime/hook_runner.py" --prepare
+python "$env:PLUGIN_ROOT/runtime/hook_runner.py" --prepare --reinstall
 ```
 
-同步成功后，插件环境位于 `${PLUGIN_ROOT}/.venv`。若 `uv` 未安装或同步失败，报告具体
-错误和下一步建议，但不要改用全局 `pip` 安装依赖。
+同步成功后，插件环境位于 `~/.agents/wttch-runtime/.venv`。若系统 Python 不支持 `venv`
+或安装失败，报告具体错误和下一步建议；不要改用全局 `pip` 安装依赖。
