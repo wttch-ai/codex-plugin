@@ -80,7 +80,7 @@ def main() -> int:
             result = UserPromptSubmitOutput.warn(
                 "Wttch 插件已启用 Hook，但当前项目尚未配置 "
                 ".agents/wttch/config.yml；模型 Gate 已忽略，本轮请求将继续。"
-                "助手指令：正常完成用户当前请求；在最终回复中简要告知用户，如需启用"
+                "助手指令：正常完成用户当前请求；在最终回复中简要告知用户，插件 Wttch 已安装，如需启用"
                 "模型 Gate，可在项目中创建 .agents/wttch/config.yml 并配置 features.model_gate。"
             )
         else:

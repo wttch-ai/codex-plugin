@@ -11,7 +11,7 @@
           },
           {
             "type": "command",
-            "command": "uv run --no-sync --project ${PLUGIN_ROOT} python ${PLUGIN_ROOT}/runtime/hook_runner.py UserPromptSubmit ${PLUGIN_ROOT}/runtime/prompt_jev_gate.py",
+            "command": "uv run --no-sync --project ${PLUGIN_ROOT} python ${PLUGIN_ROOT}/runtime/hook_runner.py UserPromptSubmit ${PLUGIN_ROOT}/runtime/jev/main.py user-prompt-submit",
             "timeout": 30
           }
         ]

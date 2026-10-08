@@ -16,6 +16,8 @@ import yaml
 # 既支持 ``python runtime/jev/main.py``，也支持从 runtime 包导入。
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from wttch_config import load_config, openrouter_api_key
+from hooks import UserPromptSubmitInput, UserPromptSubmitOutput
+from operation_log import record as record_operation
 
 
 BUILTIN_DECISION_ROOT = Path(__file__).resolve().parents[2] / "skills" / "jev-gate" / "decisions"
@@ -153,6 +155,101 @@ def request_decision(definition: dict, state: str, working_directory: Path | Non
     return response_payload
 
 
+def find_user_prompt_decision(cwd: Path) -> dict | None:
+    """返回当前项目唯一启用 UserPromptSubmit 的决策。"""
+    decision_dir = cwd / PROJECT_DECISION_ROOT
+    if not decision_dir.is_dir():
+        return None
+    matches = [
+        definition
+        for path in decision_dir.glob("*.yml")
+        if "user_prompt_submit" in (definition := load_decision(path))
+    ]
+    if len(matches) > 1:
+        raise ValueError("一个项目只能启用一个带 user_prompt_submit 的 JEV 决策")
+    return matches[0] if matches else None
+
+
+def get_noul_probability(response: dict, question: str) -> float:
+    """从 Decisions API 响应提取经过校验的 noul 概率。"""
+    answers = response.get("answers")
+    answer = answers.get(question) if isinstance(answers, dict) else None
+    probability = answer.get("noul") if isinstance(answer, dict) else None
+    if (
+        not isinstance(probability, (int, float))
+        or isinstance(probability, bool)
+        or not 0 <= probability <= 1
+    ):
+        raise ValueError(f"JEV 未返回问题 {question} 的有效 noul 概率")
+    return float(probability)
+
+
+def branch_for_probability(routing: dict, probability: float) -> str:
+    """将正向 noul 概率划入 allow、uncertain 或 deny 分支。"""
+    thresholds = routing["thresholds"]
+    if probability >= thresholds["allow_at_or_above"]:
+        return "allow"
+    if probability >= thresholds["uncertain_at_or_above"]:
+        return "uncertain"
+    return "deny"
+
+
+def response_for_probability(
+    routing: dict, probability: float
+) -> UserPromptSubmitOutput:
+    """将项目配置的 UserPromptSubmit 分支转为 Hook 响应。"""
+    branch = branch_for_probability(routing, probability)
+    output = routing["actions"][branch]
+    message = (
+        f"JEV 决策结果：{branch}；noul 可能性：{probability:.1%}。"
+        f"{output['message']}"
+    )
+    if output["action"] in {"allow", "warn"}:
+        return UserPromptSubmitOutput.warn(message)
+    return UserPromptSubmitOutput.block(message)
+
+
+def evaluate_user_prompt(event: UserPromptSubmitInput) -> UserPromptSubmitOutput | None:
+    """执行当前项目显式启用的 UserPromptSubmit JEV 决策。"""
+    definition = find_user_prompt_decision(Path(event.cwd))
+    if definition is None:
+        return None
+    routing = definition["user_prompt_submit"]
+    response = request_decision(
+        definition,
+        json.dumps({"prompt": event.prompt}, ensure_ascii=True),
+        Path(event.cwd),
+    )
+    probability = get_noul_probability(response, routing["question"])
+    branch = branch_for_probability(routing, probability)
+    result = response_for_probability(routing, probability)
+    record_operation(
+        "prompt_jev_gate",
+        details={
+            "question": routing["question"],
+            "probability": probability,
+            "branch": branch,
+            "decision": result.decision if result else "allow",
+        },
+    )
+    return result
+
+
+def run_user_prompt_submit_hook() -> int:
+    """执行 UserPromptSubmit Hook，并把配置或服务错误视为阻止。"""
+    try:
+        raw = json.load(sys.stdin)
+        if not isinstance(raw, dict):
+            raise ValueError("hook input must be a JSON object")
+        result = evaluate_user_prompt(UserPromptSubmitInput(**raw))
+    except Exception as exc:
+        result = UserPromptSubmitOutput.block(f"UserPrompt JEV Gate 未执行：{exc}")
+        record_operation("prompt_jev_gate", result="error")
+    if result is not None:
+        print(result.dump_json())
+    return 0
+
+
 def run(decision: Path, request_input: dict) -> int:
     definition = load_decision(decision)
     state = request_input.get("state")
@@ -166,6 +263,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("list")
+    sub.add_parser("user-prompt-submit")
     run_parser = sub.add_parser("run")
     run_parser.add_argument("name")
     args = parser.parse_args(argv)
@@ -180,6 +278,8 @@ def main(argv: list[str] | None = None) -> int:
             for path in decision_files()
         ], ensure_ascii=False, indent=2))
         return 0
+    if args.command == "user-prompt-submit":
+        return run_user_prompt_submit_hook()
     request_input = json.load(sys.stdin)
     if not isinstance(request_input, dict):
         raise ValueError("JEV 输入必须是 JSON 对象")

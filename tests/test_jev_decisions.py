@@ -7,8 +7,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "runtime"))
 
 from jev_gate.policy import load_policy  # noqa: E402
-from jev.main import load_decision  # noqa: E402
-from prompt_jev_gate import branch_for_probability, get_noul_probability, response_for_probability  # noqa: E402
+from jev.main import (  # noqa: E402
+    branch_for_probability,
+    get_noul_probability,
+    load_decision,
+    response_for_probability,
+)
 
 
 class JEVDecisionTypeTests(unittest.TestCase):
