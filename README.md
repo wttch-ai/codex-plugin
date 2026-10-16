@@ -51,14 +51,14 @@ JEV 是独立 runtime，可发现插件内置决策以及当前项目的
 列出决策：
 
 ```bash
-python3 runtime/jev/main.py list
+python runtime/runner.py --mode run runtime/jev/main.py list
 ```
 
 执行决策时，动态输入通过 JSON stdin 传入，避免命令行字符串注入：
 
 ```bash
 echo '{"state":"需要判断的动态输入"}' |
-python3 runtime/jev/main.py run sample-choice
+python runtime/runner.py --mode run runtime/jev/main.py run sample-choice
 ```
 
 Hook 使用独立的 `skills/jev-gate/hook.yml` 配置，不会自动绑定 JEV 决策。
@@ -88,7 +88,7 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 
 项目 `.agents/wttch/config.yml` 统一配置 JEV Gate、模型 Gate、OpenRouter 审查、
 决策原因和审计日志。插件操作会自动记录到本机 JSONL 日志，
-可用 `python3 runtime/settings.py query-log` 查询，并可按操作类型和结果筛选。
+可用 `python runtime/runner.py --mode run runtime/settings.py query-log` 查询，并可按操作类型和结果筛选。
 运行时诊断同时追加到用户状态目录下的
 `runtime.log`；可通过 `WTTCH_PLUGIN_RUNTIME_LOG` 覆盖其路径。
 
@@ -104,7 +104,7 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 ├── .codex-plugin/plugin.json         # Codex 插件清单
 ├── .agents/plugins/marketplace.json  # Codex marketplace 入口
 ├── hooks/hooks.json                  # 生命周期 Hooks
-├── runtime/hook_runner.py            # Hook 异常降级为警告
+├── runtime/runner.py                 # 统一准备环境并启动 Skill/Hook
 ├── runtime/plugin_info.py             # 不含值的本机配置索引
 ├── runtime/settings.py               # 项目功能设置读取与校验
 ├── runtime/operation_log.py          # 统一操作日志和查询
@@ -159,19 +159,19 @@ Agent Plugins 格式解析，导致 `.codex-plugin/plugin.json` 中的 Hook 声�
 
 ## Python 运行时维护
 
-Hook 入口使用系统默认的 `python` 启动轻量引导器，实际插件功能运行在固定的用户级
-虚拟环境 `~/.agents/wttch-runtime/.venv`。该环境不位于版本化插件缓存中，因此插件升级
+Skill 与 Hook 入口使用本地 `python` 启动统一 runner，实际插件功能运行在固定的用户级
+虚拟环境 `~/.wttch/agent-runtime/venv`。该环境不位于版本化插件缓存中，因此插件升级
 或重新安装时不会丢失。启用前请主动同步环境：
 
 ```bash
-python runtime/hook_runner.py --prepare
+python runtime/runner.py --mode prepare
 ```
 
-强制重装时运行 `python runtime/hook_runner.py --prepare --reinstall`。准备入口使用系统
+强制重装时运行 `python runtime/runner.py --mode reinstall`。准备入口使用本地
 Python 的 `venv` 模块创建共享环境，再调用该虚拟环境自己的 `python -m pip` 安装
 `requirements.txt`，不会调用全局 `pip`。
-Hook 通过轻量 `runtime/hook_runner.py` 从系统默认 Python 转交到共享环境；它不做环境准备，
-只会将缺依赖、配置错误或运行异常转换为不阻断的 Hook 警告。
+Skill 与 Hook 都通过 `runtime/runner.py --mode run` 从本地 Python 转交到共享环境；运行模式
+不做环境准备，Hook 的缺依赖、配置错误或运行异常会转换为不阻断警告。
 
 
 ## 配置 OpenRouter
@@ -278,7 +278,7 @@ features:
 ```
 
 所有已知功能键都必须在 `features` 中出现，运行时会校验类型和未知键。可用
-`python3 runtime/settings.py list-settings` 只读检查当前项目配置。若某项配置只适用于
+`python runtime/runner.py --mode run runtime/settings.py list-settings` 只读检查当前项目配置。若某项配置只适用于
 一个功能模块，不要扩展通用 `features`；在该模块的项目目录下新增其专属 YAML，并由该
 模块显式读取和校验。
 
@@ -287,21 +287,21 @@ features:
 检查 YAML 结构和正则表达式：
 
 ```bash
-python3 runtime/jev_gate/main.py validate-jev-policy \
+python runtime/runner.py --mode run runtime/jev_gate/main.py validate-jev-policy \
   --policy skills/jev-gate/hook.yml
 ```
 
 列出独立 JEV 决策：
 
 ```bash
-python3 runtime/jev/main.py list
+python runtime/runner.py --mode run runtime/jev/main.py list
 ```
 
 模拟一个应被拒绝的 `PreToolUse` 事件：
 
 ```bash
 printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"/workspace"}' \
-  | python3 runtime/jev_gate/main.py jev-gate \
+  | python runtime/runner.py --mode run runtime/jev_gate/main.py jev-gate \
       --policy skills/jev-gate/hook.yml
 ```
 

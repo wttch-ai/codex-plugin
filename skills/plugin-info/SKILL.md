@@ -10,7 +10,7 @@ description: 查看 Wttch 插件配置来源，并在用户明确请求时创建
 显示当前工作目录中 Wttch 插件的配置索引。运行共享 runtime：
 
 ```bash
-python3 "${PLUGIN_ROOT}/runtime/plugin_info.py"
+python "${PLUGIN_ROOT}/runtime/runner.py" --mode run "${PLUGIN_ROOT}/runtime/plugin_info.py"
 ```
 
 输出中的字段含义如下：
@@ -36,27 +36,27 @@ API Key、模型标识、地址、超时和功能开关值。
 自动同步或安装。
 
 插件根目录由 Codex 注入的 `PLUGIN_ROOT` 环境变量确定，不依赖当前工作目录。插件共享
-环境固定在 `~/.agents/wttch-runtime/.venv`，不会写入版本化的插件安装或缓存目录。
+环境固定在 `~/.wttch/agent-runtime/venv`，不会写入版本化的插件安装或缓存目录。
 
-首次准备、常规同步或依赖声明变更后，运行；该入口使用系统默认 Python 创建共享虚拟环境，
+首次准备、常规同步或依赖声明变更后，运行；该入口使用本地 Python 创建共享虚拟环境，
 再使用虚拟环境自己的 `python -m pip` 安装 `requirements.txt`，不修改全局 Python 包：
 
 ```bash
-python "${PLUGIN_ROOT}/runtime/hook_runner.py" --prepare
+python "${PLUGIN_ROOT}/runtime/runner.py" --mode prepare
 ```
 
 用户要求强制重装全部依赖时，运行：
 
 ```bash
-python "${PLUGIN_ROOT}/runtime/hook_runner.py" --prepare --reinstall
+python "${PLUGIN_ROOT}/runtime/runner.py" --mode reinstall
 ```
 
-在 Windows PowerShell 中同样使用系统默认 Python：
+在 Windows PowerShell 中同样使用本地 Python：
 
 ```powershell
-python "$env:PLUGIN_ROOT/runtime/hook_runner.py" --prepare
-python "$env:PLUGIN_ROOT/runtime/hook_runner.py" --prepare --reinstall
+python "$env:PLUGIN_ROOT/runtime/runner.py" --mode prepare
+python "$env:PLUGIN_ROOT/runtime/runner.py" --mode reinstall
 ```
 
-同步成功后，插件环境位于 `~/.agents/wttch-runtime/.venv`。若系统 Python 不支持 `venv`
+同步成功后，插件环境位于 `~/.wttch/agent-runtime/venv`。若本地 Python 不支持 `venv`
 或安装失败，报告具体错误和下一步建议；不要改用全局 `pip` 安装依赖。

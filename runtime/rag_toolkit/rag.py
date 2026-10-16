@@ -105,7 +105,7 @@ def _load_dependencies():
         import sqlite_vec  # noqa: F401
         globals()["sqlite_vec"] = sqlite_vec  # 绑定到模块级，供各命令使用
     except ImportError:
-        sys.exit("错误：当前 Python 环境未找到 sqlite-vec；请用系统 Python 运行 runtime/hook_runner.py --prepare")
+        sys.exit("错误：当前 Python 环境未找到 sqlite-vec；请用本地 Python 运行 runtime/runner.py --mode prepare")
 
 
 _load_dependencies()
@@ -405,7 +405,7 @@ def _langchain_splitters():
             globals()["_splitter_cache"] = (MarkdownHeaderTextSplitter,
                                             RecursiveCharacterTextSplitter)
         except ImportError:
-            sys.exit("错误：未找到 langchain-text-splitters；请用系统 Python 运行 runtime/hook_runner.py --prepare")
+            sys.exit("错误：未找到 langchain-text-splitters；请用本地 Python 运行 runtime/runner.py --mode prepare")
     return globals()["_splitter_cache"]
 
 
@@ -827,7 +827,7 @@ def cmd_check(args):
         print(f"sqlite-vec : {sqlite_vec.__version__ if hasattr(sqlite_vec, '__version__') else '已加载'}")
         print(f"vec0.dll   : {sqlite_vec.loadable_path()}.dll")
     except ImportError:
-        print("sqlite-vec : 未安装（请用系统 Python 运行 runtime/hook_runner.py --prepare）")
+        print("sqlite-vec : 未安装（请用本地 Python 运行 runtime/runner.py --mode prepare）")
         return
     # 验证扩展可加载
     try:
@@ -845,7 +845,7 @@ def cmd_check(args):
         import importlib.metadata as _md
         print(f"langchain : 已安装（text-splitters {_md.version('langchain-text-splitters')}）")
     except ImportError:
-        print("langchain : 未安装（ingest 前请用系统 Python 运行 runtime/hook_runner.py --prepare）")
+        print("langchain : 未安装（ingest 前请用本地 Python 运行 runtime/runner.py --mode prepare）")
     # Ollama
     try:
         models = ollama_models()
@@ -909,7 +909,8 @@ def build_parser():
             "项目本地 RAG 记忆工具包 CLI（sqlite-vec + Ollama 嵌入）。\n"
             "数据库保存于调用项目 .agents/wttch/rag-data/rag.db。\n\n"
             "统一调用（仓库根执行，rtk 前缀为项目规定）：\n"
-            "  python ${PLUGIN_ROOT}/runtime/rag_toolkit/rag.py <命令> ...\n\n"
+            "  python ${PLUGIN_ROOT}/runtime/runner.py --mode run "
+            "${PLUGIN_ROOT}/runtime/rag_toolkit/rag.py <命令> ...\n\n"
             "分块规则：.md/.markdown 用 MarkdownHeaderTextSplitter 按标题拆章节（section=最深标题）；\n"
             "          .txt 用 RecursiveCharacterTextSplitter 拆段落；均为 300 token / 60 重叠。\n"
             "更新机制：整文件 hash 判变更 + chunk 内容 hash 粒度 diff —— 仅新/改 chunk 重新嵌入。\n\n"

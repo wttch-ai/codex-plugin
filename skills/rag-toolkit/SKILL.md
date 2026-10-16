@@ -21,13 +21,13 @@ description: 在当前项目的本地 RAG 记忆库中检索、导入文档、�
 从项目根目录调用插件运行时（`PLUGIN_ROOT` 指插件安装目录）：
 
 ```bash
-python "${PLUGIN_ROOT}/runtime/rag_toolkit/rag.py" <command>
+python "${PLUGIN_ROOT}/runtime/runner.py" --mode run "${PLUGIN_ROOT}/runtime/rag_toolkit/rag.py" <command>
 ```
 
 查看当前项目可识别的 scope：
 
 ```bash
-python "${PLUGIN_ROOT}/runtime/rag_toolkit/rag.py" scopes
+python "${PLUGIN_ROOT}/runtime/runner.py" --mode run "${PLUGIN_ROOT}/runtime/rag_toolkit/rag.py" scopes
 ```
 
 - 遇到历史决策、陌生链路、项目契约或难以定位的问题时先执行 `query`。
