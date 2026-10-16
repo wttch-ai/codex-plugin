@@ -11,6 +11,7 @@ from typing import Any
 import yaml
 
 from notice import hook_notice
+from operation_log import record as record_operation
 
 
 CONFIG_RELATIVE_PATH = Path(".agents") / "wttch" / "forbidden-server.yml"
@@ -77,9 +78,19 @@ def evaluate(event: dict[str, Any]) -> dict[str, Any]:
 def main() -> int:
     try:
         event = json.load(sys.stdin)
-        print(json.dumps(evaluate(event), ensure_ascii=False))
+        result = evaluate(event)
+        output = result["hookSpecificOutput"]
+        decision = output.get("permissionDecision")
+        if decision is None:
+            decision = "warn" if "additionalContext" in output else "allow"
+        record_operation(
+            "forbidden_server",
+            details={"tool_name": event.get("tool_name"), "decision": decision},
+        )
+        print(json.dumps(result, ensure_ascii=False))
         return 0
     except (ValueError, json.JSONDecodeError) as exc:
+        record_operation("forbidden_server", result="error")
         print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": hook_notice(f"forbidden-server 未执行：{exc}")}}, ensure_ascii=False))
         return 0
 

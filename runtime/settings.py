@@ -5,12 +5,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 from typing import Any
 
 from operation_log import log_path, query as query_operations, record as record_operation
-from paths import DEFAULT_AUDIT_LOG_PATH
 from wttch_config import CONFIG_PATH, load_config
 
 
@@ -24,12 +22,6 @@ FEATURE_SCHEMA: dict[str, dict[str, Any]] = {
     "model_gate_action": {"type": "string", "choices": ["block", "warn"]},
     "blocked_models": {"type": "string_list"},
 }
-
-
-def audit_log_path() -> Path:
-    """返回本机 JSONL 审计日志位置，支持用环境变量隔离测试数据。"""
-    override = os.environ.get("WTTCH_PLUGIN_AUDIT_LOG", "").strip()
-    return Path(override).expanduser() if override else DEFAULT_AUDIT_LOG_PATH
 
 
 def valid_value(entry: dict[str, Any], value: Any) -> bool:

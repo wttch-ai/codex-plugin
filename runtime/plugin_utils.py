@@ -15,9 +15,6 @@ CONFIGURATION_ENVIRONMENT_VARIABLES = (
     "JEV_OPENROUTER_MODEL",
     "JEV_OPENROUTER_BASE_URL",
     "JEV_OPENROUTER_TIMEOUT",
-    "WTTCH_PLUGIN_AUDIT_LOG",
-    # 只展示变量名称，不读取或输出日志路径中的内容。
-    "WTTCH_PLUGIN_OPERATION_LOG",
 )
 
 
@@ -39,7 +36,7 @@ def report(working_directory: Path | None = None) -> dict[str, list[str]]:
 
 
 def main() -> int:
-    """将配置索引以 JSON 输出，供 plugin-info Skill 直接展示。"""
+    """将配置索引以 JSON 输出，供 plugin-utils Skill 直接展示。"""
     print(json.dumps(report(), ensure_ascii=False, indent=2))
     return 0
 

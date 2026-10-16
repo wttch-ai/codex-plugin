@@ -5,7 +5,7 @@ Wttch 的私人 Codex 插件，用来集中维护可复用的 Skills、生命周
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.43`
+- 当前版本：`0.1.44-SNOPSHOT-2026-10-16T10-04-13`
 - 使用范围：私人插件
 
 ## 快速开始
@@ -41,7 +41,7 @@ wttch-codex-plugin@wttch-ai  installed, enabled
 
 ### JEV 决策与 Hook
 
-JEV 是独立 runtime，可发现插件内置决策以及当前项目的
+JEV 使用统一 runtime，可发现插件内置决策以及当前项目的
 `.agents/wttch/jev-decisions/*.yml`。决策定义使用官方的 `questions` 格式，支持：
 
 - `choice`：固定选项选择；
@@ -51,19 +51,20 @@ JEV 是独立 runtime，可发现插件内置决策以及当前项目的
 列出决策：
 
 ```bash
-python runtime/runner.py --mode run runtime/jev/main.py list
+python runtime/runner.py --mode run runtime/jev/main.py decision list
 ```
 
 执行决策时，动态输入通过 JSON stdin 传入，避免命令行字符串注入：
 
 ```bash
 echo '{"state":"需要判断的动态输入"}' |
-python runtime/runner.py --mode run runtime/jev/main.py run sample-choice
+python runtime/runner.py --mode run runtime/jev/main.py decision run sample-choice
 ```
 
-Hook 使用独立的 `skills/jev-gate/hook.yml` 配置，不会自动绑定 JEV 决策。
-JEV runtime 只执行 YAML 中定义的 `choice`、`noul` 与 `score` 问题，并原样返回结构化结果；
-路由、任务创建、Hook 调度和用户介入均由调用方自行实现。
+PreToolUse Gate 使用独立的 `skills/jev-gate/hook.yml` 配置；项目级 JEV 决策可通过
+`hook.user_prompt_submit` 声明自动绑定已启用的插件 UserPromptSubmit Hook。
+通用 `decision run` 命令只执行 YAML 中定义的 `choice`、`noul` 与 `score` 问题并返回
+结构化结果；声明在 `hook` 下的适配器则由已启用的插件 Hook 自动路由。
 
 ### 模型 Gate
 
@@ -87,15 +88,16 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 ### 功能开关
 
 项目 `.agents/wttch/config.yml` 统一配置 JEV Gate、模型 Gate、OpenRouter 审查、
-决策原因和审计日志。插件操作会自动记录到本机 JSONL 日志，
+决策原因和审计日志。插件操作与运行诊断统一记录到本机按日期分割的 JSON 行日志
+`~/.wttch/logs/YYYY-MM-DD.log`，日志模块只使用文件 Handler，不会写入 Hook 的
+stdout 或 stderr。
 可用 `python runtime/runner.py --mode run runtime/settings.py query-log` 查询，并可按操作类型和结果筛选。
-运行时诊断同时追加到用户状态目录下的
-`runtime.log`；可通过 `WTTCH_PLUGIN_RUNTIME_LOG` 覆盖其路径。
 
-### 插件信息
+### 插件辅助工具
 
-`plugin-info` Skill 显示工作目录配置字段和已设置的 Wttch 环境变量名称。它不显示任何
-配置值，包括 API Key、模型标识和功能开关值。
+`plugin-utils` Skill 显示工作目录配置字段、运行环境和当日日志状态，也可准备或重装
+共享虚拟环境并查询结构化日志。状态命令不显示任何配置值或日志正文，包括 API Key、
+模型标识和功能开关值。
 
 ## 目录结构
 
@@ -105,19 +107,19 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 ├── .agents/plugins/marketplace.json  # Codex marketplace 入口
 ├── hooks/hooks.json                  # 生命周期 Hooks
 ├── runtime/runner.py                 # 统一准备环境并启动 Skill/Hook
-├── runtime/plugin_info.py             # 不含值的本机配置索引
+├── runtime/plugin_utils.py            # 不含值的配置索引
 ├── runtime/settings.py               # 项目功能设置读取与校验
 ├── runtime/operation_log.py          # 统一操作日志和查询
+├── runtime/wttch_logging.py          # 仅写文件的标准 logging 配置
 ├── runtime/wttch_config.py            # Wttch 工作目录配置读取
 ├── runtime/model_gate.py             # 模型 Gate
-├── runtime/jev/                      # 独立 JEV runtime
-│   ├── main.py                       # list/run 命令
-│   └── __init__.py
-├── runtime/jev_gate/                 # Hook 规则实现（兼容模块）
-│   ├── main.py                       # JEV Gate 入口
-│   ├── policy.py                     # 策略加载和匹配
+├── runtime/jev/                      # 统一 JEV 决策与 Hook runtime
+│   ├── main.py                       # 唯一 CLI 入口
+│   ├── decision.py                   # Decisions API 与 UserPromptSubmit
+│   ├── policy.py                     # Hook 策略加载和匹配
 │   ├── review.py                     # OpenRouter 审查
-│   └── gate.py                       # Gate 评估和审计
+│   ├── gate.py                       # Gate 评估和审计
+│   └── __init__.py
 ├── runtime/rag_toolkit/               # 插件代码；RAG 数据保留在调用项目内
 ├── requirements.txt                  # 共享运行环境的 Python 依赖
 ├── requirements.txt                  # 共享运行环境的 Python 依赖
@@ -130,8 +132,8 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
     │   └── decisions/*.yml            # 内置 JEV 决策
     ├── plugin-settings/
     │   └── SKILL.md                  # 功能开关说明
-    └── plugin-info/
-        └── SKILL.md                  # 插件辅助功能说明
+    └── plugin-utils/
+        └── SKILL.md                  # 配置、运行时与日志辅助功能
 ```
 
 ### `PLUGIN_ROOT` 和插件清单
@@ -204,7 +206,7 @@ export JEV_OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
 export JEV_OPENROUTER_TIMEOUT="20"
 ```
 
-不要把真实密钥写入 `gate.yml`、README、脚本、示例文件或 Git 提交。
+不要把真实密钥写入 `hook.yml`、README、脚本、示例文件或 Git 提交。
 
 ## Hook 配置与 JEV runtime
 
@@ -213,7 +215,7 @@ Hook 专用配置位于 `skills/jev-gate/hook.yml`，只负责工具匹配和 Ho
 决策位于项目根目录的 `.agents/wttch/jev-decisions/*.yml`。
 
 对于需要绑定 `UserPromptSubmit` 的 `noul` 决策，可在决策文件顶层添加
-`user_prompt_submit`。该字段引用一个正向的 `noul` 问题（例如“是否可安全自动
+`hook.user_prompt_submit`。该字段引用一个正向的 `noul` 问题（例如“是否可安全自动
 处理”），并在 YAML 中定义概率阈值和三个分支的 `allow`、`warn` 或 `block` 动作：
 
 `UserPromptSubmit` Hook 只会读取当前项目
@@ -221,21 +223,22 @@ Hook 专用配置位于 `skills/jev-gate/hook.yml`，只负责工具匹配和 Ho
 仅作为可复制模板，绝不会直接启用。每个项目最多配置一个此类决策。
 
 ```yaml
-user_prompt_submit:
-  question: safe_to_run
-  thresholds:
-    allow_at_or_above: 0.80
-    uncertain_at_or_above: 0.40
-  actions:
-    allow:
-      action: allow
-      message: "JEV 判断该请求可自动处理。"
-    uncertain:
-      action: block
-      message: "JEV 判断可信度不足，请明确确认后重新提交。"
-    deny:
-      action: block
-      message: "JEV 判断该请求不适合自动处理。"
+hook:
+  user_prompt_submit:
+    question: safe_to_run
+    thresholds:
+      allow_at_or_above: 0.80
+      uncertain_at_or_above: 0.40
+    actions:
+      allow:
+        action: allow
+        message: "JEV 判断该请求可自动处理。"
+      uncertain:
+        action: block
+        message: "JEV 判断可信度不足，请明确确认后重新提交。"
+      deny:
+        action: block
+        message: "JEV 判断该请求不适合自动处理。"
 ```
 
 概率达到 `allow_at_or_above` 时走 `allow`；介于两个阈值之间走 `uncertain`；其余
@@ -287,21 +290,21 @@ features:
 检查 YAML 结构和正则表达式：
 
 ```bash
-python runtime/runner.py --mode run runtime/jev_gate/main.py validate-jev-policy \
+python runtime/runner.py --mode run runtime/jev/main.py policy validate \
   --policy skills/jev-gate/hook.yml
 ```
 
-列出独立 JEV 决策：
+列出 JEV 决策：
 
 ```bash
-python runtime/runner.py --mode run runtime/jev/main.py list
+python runtime/runner.py --mode run runtime/jev/main.py decision list
 ```
 
 模拟一个应被拒绝的 `PreToolUse` 事件：
 
 ```bash
 printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"/workspace"}' \
-  | python runtime/runner.py --mode run runtime/jev_gate/main.py jev-gate \
+  | python runtime/runner.py --mode run runtime/jev/main.py hook pre-tool-use \
       --policy skills/jev-gate/hook.yml
 ```
 

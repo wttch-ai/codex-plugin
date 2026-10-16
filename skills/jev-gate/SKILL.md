@@ -10,13 +10,14 @@ JEV 决策文件位于本 skill 的 `decisions/*.yml`。每个文件定义一个
 `review` 是策略动作，不是 JEV 类型。决策文件只定义固定的类型、候选项和提示词；
 具体 `question` 在每次执行时由程序输入或 Hook 事件提供。
 项目级决策文件放在当前项目根目录的 `.agents/wttch/jev-decisions/*.yml`，项目文件会覆盖同名内置决策。
-这些决策默认不绑定 Hook。Hook 的匹配规则单独位于 `hook.yml`；只有在 Hook 配置
-明确引用某个决策时，Hook 才会调用该决策。
+项目决策声明 `hook.user_prompt_submit` 后，只要插件的 JEV UserPromptSubmit Hook 已启用，
+统一入口就会自动发现并执行它；内置示例不会自动挂载。PreToolUse 的匹配规则单独位于
+`hook.yml`，不与决策文件中的 Hook 声明混用。
 
 列出当前项目决策：
 
 ```bash
-python "${PLUGIN_ROOT}/runtime/runner.py" --mode run "${PLUGIN_ROOT}/runtime/jev/main.py" list
+python "${PLUGIN_ROOT}/runtime/runner.py" --mode run "${PLUGIN_ROOT}/runtime/jev/main.py" decision list
 ```
 
 执行指定决策时，将 Hook 事件 JSON 通过标准输入传入：
@@ -24,7 +25,7 @@ python "${PLUGIN_ROOT}/runtime/runner.py" --mode run "${PLUGIN_ROOT}/runtime/jev
 ```bash
 echo '{"tool_name":"Bash","tool_input":{"command":"git status"}}' \
 python "${PLUGIN_ROOT}/runtime/runner.py" --mode run "${PLUGIN_ROOT}/runtime/jev/main.py" \
-  run <decision-name> <<'JSON'
+  decision run <decision-name> <<'JSON'
 {"state":"本次执行的动态输入"}
 JSON
 ```
@@ -32,7 +33,7 @@ JSON
 This is one skill inside the larger Wttch plugin. Use the plugin's shared runtime
 instead of adding a separate environment or dependency file to this skill.
 
-1. Read `gate.yml` before changing behavior. Keep it limited to gate policy:
+1. Read `hook.yml` before changing behavior. Keep it limited to gate policy:
    defaults, matching rules, actions, reasons, and review instructions.
 2. Keep model and transport settings out of the policy YAML. Read the API key
    from `.agents/wttch/config.yml` in the project working directory, field
@@ -44,10 +45,10 @@ instead of adding a separate environment or dependency file to this skill.
 3. Validate the policy with:
 
    ```bash
-   python "${PLUGIN_ROOT}/runtime/runner.py" --mode run "${PLUGIN_ROOT}/runtime/jev_gate/main.py" validate-jev-policy --policy "${PLUGIN_ROOT}/skills/jev-gate/gate.yml"
+   python "${PLUGIN_ROOT}/runtime/runner.py" --mode run "${PLUGIN_ROOT}/runtime/jev/main.py" policy validate --policy "${PLUGIN_ROOT}/skills/jev-gate/hook.yml"
    ```
 
-4. Dry-run the hook by piping one `PreToolUse` JSON event into `jev-gate` on the
+4. Dry-run the hook by piping one `PreToolUse` JSON event into `hook pre-tool-use` on the
    same runtime. Never print or echo `OPENROUTER_API_KEY`.
 5. Explain which rule matched, whether the outcome was static or reviewed by
    JEV, and whether fail-open behavior was used.

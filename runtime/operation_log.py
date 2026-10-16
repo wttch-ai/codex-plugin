@@ -1,41 +1,32 @@
-"""统一的插件操作日志：只记录安全的元数据，不记录输入正文或密钥。"""
+"""Structured operation events backed by the file-only Wttch logger."""
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
-import os
 from pathlib import Path
 from typing import Any
 
-# 默认位置集中在 paths.py；这里仍允许用环境变量隔离测试或切换本机存储位置。
-from paths import DEFAULT_OPERATION_LOG_PATH, DEFAULT_RUNTIME_LOG_PATH
+from wttch_logging import get_logger, log_path as daily_log_path, log_root
 
 
 def log_path() -> Path:
-    """返回当前操作日志路径，环境变量优先于统一的本机默认路径。"""
-    override = os.environ.get("WTTCH_PLUGIN_OPERATION_LOG", "").strip()
-    if override:
-        return Path(override).expanduser()
-    return DEFAULT_OPERATION_LOG_PATH
+    """Return today's unified plugin log path."""
+    return daily_log_path()
 
 
 def runtime_log_path() -> Path:
-    """返回运行时诊断日志路径，支持测试或本机切换。"""
-    override = os.environ.get("WTTCH_PLUGIN_RUNTIME_LOG", "").strip()
-    if override:
-        return Path(override).expanduser()
-    return DEFAULT_RUNTIME_LOG_PATH
+    """Compatibility alias for callers that previously used a separate file."""
+    return daily_log_path()
 
 
 def record_runtime(message: str) -> None:
-    """追加一行人类可读的运行时日志；日志故障不影响主流程。"""
+    """Record a runtime warning without touching stdout or stderr."""
     try:
-        path = runtime_log_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as stream:
-            stream.write(f"{datetime.now(timezone.utc).isoformat()} {message}\n")
-    except (OSError, TypeError, ValueError):
+        get_logger("runtime").warning(
+            message,
+            extra={"event": {"operation": "runtime", "result": "warning"}},
+        )
+    except (OSError, TypeError, ValueError, KeyError):
         return
 
 
@@ -45,21 +36,12 @@ def record(operation: str, *, result: str = "ok", details: dict[str, Any] | None
     调用方只能传入经过筛选的元数据。写入异常被吞掉，是为了避免日志目录权限或
     磁盘问题改变 Gate 的原有安全行为。
     """
-    entry: dict[str, Any] = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "operation": operation,
-        "result": result,
-    }
-    # 删除 None 字段，避免日志中出现没有实际信息的占位值。
+    event: dict[str, Any] = {"operation": operation, "result": result}
     if details:
-        entry["details"] = {key: value for key, value in details.items() if value is not None}
+        event["details"] = {key: value for key, value in details.items() if value is not None}
     try:
-        path = log_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        # JSONL 采用追加模式，每行一条完整事件，便于流式读取和部分损坏时跳过坏行。
-        with path.open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n")
-    except (OSError, TypeError, ValueError):
+        get_logger("operation").info(operation, extra={"event": event})
+    except (OSError, TypeError, ValueError, KeyError):
         return
 
 
@@ -70,22 +52,20 @@ def query(*, operation: str | None = None, result: str | None = None, limit: int
     """
     if limit < 1:
         raise ValueError("limit must be positive")
-    path = log_path()
-    if not path.exists():
-        return []
     matches: list[dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as stream:
-        for line in stream:
-            try:
-                # 单行解析失败不影响其余历史记录的查询。
-                item = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if not isinstance(item, dict):
-                continue
-            if operation and item.get("operation") != operation:
-                continue
-            if result and item.get("result") != result:
-                continue
-            matches.append(item)
+    for path in sorted(log_root().glob("*.log")):
+        with path.open("r", encoding="utf-8") as stream:
+            for line in stream:
+                try:
+                    item = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                event = item.get("event") if isinstance(item, dict) else None
+                if not isinstance(event, dict) or "operation" not in event:
+                    continue
+                if operation and event.get("operation") != operation:
+                    continue
+                if result and event.get("result") != result:
+                    continue
+                matches.append({"timestamp": item.get("timestamp"), **event})
     return matches[-limit:]
