@@ -14,10 +14,6 @@ from wttch_config import CONFIG_PATH, load_config
 
 # 此处只描述 YAML 结构，不保存任何配置值或默认值；功能值必须来自调用项目。
 FEATURE_SCHEMA: dict[str, dict[str, Any]] = {
-    "jev_gate": {"type": "boolean"},
-    "openrouter_review": {"type": "boolean"},
-    "show_decision_reason": {"type": "boolean"},
-    "audit_log": {"type": "boolean"},
     "model_gate": {"type": "boolean"},
     "model_gate_action": {"type": "string", "choices": ["block", "warn"]},
     "blocked_models": {"type": "string_list"},

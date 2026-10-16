@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 import sys
 
@@ -12,8 +11,6 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from jev.decision import list_decisions, run_named_decision, run_user_prompt_submit_hook
-from jev.gate import evaluate
-from jev.policy import load_policy
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -29,13 +26,6 @@ def build_parser() -> argparse.ArgumentParser:
     hook = commands.add_parser("hook", help="执行 Codex Hook。")
     hook_commands = hook.add_subparsers(dest="hook_command", required=True)
     hook_commands.add_parser("user-prompt-submit", help="执行 UserPromptSubmit 决策。")
-    pre_tool_use = hook_commands.add_parser("pre-tool-use", help="执行 PreToolUse Gate。")
-    pre_tool_use.add_argument("--policy", type=Path, required=True)
-
-    policy = commands.add_parser("policy", help="维护 Gate 策略。")
-    policy_commands = policy.add_subparsers(dest="policy_command", required=True)
-    validate = policy_commands.add_parser("validate", help="校验 Gate 策略。")
-    validate.add_argument("--policy", type=Path, required=True)
     return parser
 
 
@@ -46,20 +36,7 @@ def main(argv: list[str] | None = None) -> int:
             return list_decisions()
         return run_named_decision(args.name)
 
-    if args.command == "policy":
-        policy = load_policy(args.policy)
-        print(json.dumps({"ok": True, "rules": len(policy["rules"])}))
-        return 0
-
-    if args.hook_command == "user-prompt-submit":
-        return run_user_prompt_submit_hook()
-
-    policy = load_policy(args.policy)
-    event = json.load(sys.stdin)
-    if not isinstance(event, dict):
-        raise ValueError("hook input must be a JSON object")
-    print(json.dumps(evaluate(policy, event), ensure_ascii=False))
-    return 0
+    return run_user_prompt_submit_hook()
 
 
 if __name__ == "__main__":

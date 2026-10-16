@@ -4,34 +4,14 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from wttch_config import configured_fields
-
-
-# 仅枚举本插件实际读取的环境变量，避免把无关进程环境带入输出。
-CONFIGURATION_ENVIRONMENT_VARIABLES = (
-    "OPENROUTER_API_KEY",
-    "JEV_OPENROUTER_MODEL",
-    "JEV_OPENROUTER_BASE_URL",
-    "JEV_OPENROUTER_TIMEOUT",
-)
-
-
-def configured_environment_variables() -> list[str]:
-    """返回当前进程中已设置的 Wttch 相关环境变量名。"""
-    return [
-        name
-        for name in CONFIGURATION_ENVIRONMENT_VARIABLES
-        if os.environ.get(name, "").strip()
-    ]
 
 
 def report(working_directory: Path | None = None) -> dict[str, list[str]]:
     """生成可安全展示的配置索引；结果只包含字段和变量名称。"""
     return {
         "working_directory_config_fields": configured_fields(working_directory),
-        "environment_variables": configured_environment_variables(),
     }
 
 

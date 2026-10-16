@@ -18,7 +18,6 @@ from hooks import UserPromptSubmitInput, UserPromptSubmitOutput
 from operation_log import record as record_operation
 
 
-BUILTIN_DECISION_ROOT = Path(__file__).resolve().parents[2] / "skills" / "jev-gate" / "decisions"
 PROJECT_DECISION_ROOT = Path(".agents") / "wttch" / "jev-decisions"
 DEFAULT_ENDPOINT = "https://openrouter.ai/api/alpha/decisions"
 USER_PROMPT_ACTIONS = {"allow", "warn", "block"}
@@ -98,11 +97,9 @@ def validate_user_prompt_submit(definition: dict) -> None:
 
 
 def decision_files(cwd: Path | None = None) -> list[Path]:
-    """返回内置和当前项目的 JEV 决策，项目同名文件优先。"""
+    """返回当前项目显式安装的 JEV 决策。"""
     project_root = (cwd or Path.cwd()) / PROJECT_DECISION_ROOT
-    paths: dict[str, Path] = {path.stem: path for path in BUILTIN_DECISION_ROOT.glob("*.yml")}
-    paths.update({path.stem: path for path in project_root.glob("*.yml")})
-    return sorted(paths.values(), key=lambda path: path.stem)
+    return sorted(project_root.glob("*.yml"), key=lambda path: path.stem)
 
 
 def load_decision(path: Path) -> dict:
@@ -126,13 +123,10 @@ def load_decision(path: Path) -> dict:
 
 
 def resolve(name: str, cwd: Path | None = None) -> Path:
-    candidate = Path(name)
-    if candidate.is_file():
-        return candidate.resolve()
     for path in decision_files(cwd):
         if path.stem == name or path.name == name:
             return path
-    raise FileNotFoundError(f"JEV 决策不存在：{name}")
+    raise FileNotFoundError(f"项目 JEV 决策不存在：{name}")
 
 
 def request_decision(definition: dict, state: str, working_directory: Path | None = None) -> dict:
@@ -240,7 +234,7 @@ def evaluate_user_prompt(event: UserPromptSubmitInput) -> UserPromptSubmitOutput
     branch = branch_for_probability(routing, probability)
     result = response_for_probability(routing, probability)
     record_operation(
-        "prompt_jev_gate",
+        "prompt_jev_decision",
         details={
             "question": routing["question"],
             "probability": probability,
@@ -260,7 +254,7 @@ def run_user_prompt_submit_hook() -> int:
         result = evaluate_user_prompt(UserPromptSubmitInput(**raw))
     except Exception as exc:
         result = UserPromptSubmitOutput.block(f"UserPrompt JEV Gate 未执行：{exc}")
-        record_operation("prompt_jev_gate", result="error")
+        record_operation("prompt_jev_decision", result="error")
     if result is not None:
         print(result.dump_json())
     return 0
@@ -282,7 +276,7 @@ def list_decisions() -> int:
             "name": path.stem,
             "file": str(path),
             "group": load_decision(path).get("group", ""),
-            "source": "builtin" if BUILTIN_DECISION_ROOT in path.parents else "project",
+            "source": "project",
         }
         for path in decision_files()
     ], ensure_ascii=False, indent=2))
