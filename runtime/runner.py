@@ -12,10 +12,10 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from hooks import UserPromptSubmitOutput
 from notice import hook_notice
-from operation_log import record_runtime
 from paths import PLUGIN_ROOT, RUNTIME_VENV
-from wttch_logging import log_path, log_root
+from wttch_logging import log_path, log_root, record_runtime
 
 
 def runtime_python_path(venv: Path = RUNTIME_VENV, platform: str = os.name) -> Path:
@@ -34,6 +34,7 @@ def prepare_runtime(reinstall: bool = False) -> int:
     """Create or update the persistent plugin environment using local Python."""
     RUNTIME_VENV.parent.mkdir(parents=True, exist_ok=True)
     runtime_python = runtime_python_path()
+    # 环境不存在时必须使用启动 runner 的本地 Python 创建，不能依赖全局 pip。
     if not runtime_python.is_file():
         created = subprocess.run(
             [sys.executable, "-m", "venv", str(RUNTIME_VENV)],
@@ -81,20 +82,18 @@ def runtime_status() -> dict[str, object]:
     }
 
 
-def hook_warning(hook_event: str, error: Exception) -> dict[str, object]:
+def hook_warning(
+    hook_event: str, error: Exception
+) -> UserPromptSubmitOutput | dict[str, object]:
     """Build a non-blocking Codex Hook response."""
-    message = hook_notice(
+    reason = (
         f"Wttch Hook 未执行：{error}。请使用本地 Python 运行 "
         f"{prepare_command()} 以准备依赖。"
     )
     if hook_event == "UserPromptSubmit":
-        return {
-            "systemMessage": message,
-            "hookSpecificOutput": {
-                "hookEventName": hook_event,
-                "additionalContext": message,
-            },
-        }
+        # UserPromptSubmit 已强制实体化，确保字段名和 JSON 序列化统一。
+        return UserPromptSubmitOutput.warn(reason)
+    message = hook_notice(reason)
     if hook_event == "PreToolUse":
         return {
             "hookSpecificOutput": {
@@ -109,6 +108,7 @@ def run_target(target: str, arguments: Sequence[str], hook_event: str | None = N
     """Run a plugin entry point inside the shared environment."""
     try:
         runtime_python = runtime_python_path()
+        # 首次由本地 Python 启动时转交给共享环境；环境内再次执行时直接运行目标。
         if Path(sys.prefix).resolve() != RUNTIME_VENV.resolve():
             if not runtime_python.is_file():
                 raise FileNotFoundError(f"未找到插件运行环境 {runtime_python}")
@@ -128,9 +128,14 @@ def run_target(target: str, arguments: Sequence[str], hook_event: str | None = N
     except SystemExit as exc:
         return int(exc.code) if isinstance(exc.code, int) else 0
     except Exception as exc:
+        # 日志失败不得覆盖原始错误，也不得把诊断信息写入 Hook 协议通道。
         record_runtime(f"执行 {target} 失败：{type(exc).__name__}: {exc}")
         if hook_event:
-            print(json.dumps(hook_warning(hook_event, exc), ensure_ascii=True))
+            warning = hook_warning(hook_event, exc)
+            if isinstance(warning, UserPromptSubmitOutput):
+                print(warning.dump_json())
+            else:
+                print(json.dumps(warning, ensure_ascii=True))
             return 0
         print(f"Wttch runtime 执行失败：{exc}", file=sys.stderr)
         print(f"请使用本地 Python 运行 {prepare_command()}。", file=sys.stderr)
@@ -139,6 +144,7 @@ def run_target(target: str, arguments: Sequence[str], hook_event: str | None = N
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """定义环境维护、状态查询和入口执行四种互斥模式。"""
     parser = argparse.ArgumentParser(
         description="创建、更新或使用 Wttch 插件的共享 Python 环境。"
     )
@@ -159,6 +165,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """校验各模式参数并执行对应的环境或入口操作。"""
     args = build_parser().parse_args(argv)
     if args.mode == "prepare":
         if args.target or args.arguments or args.hook_event:

@@ -1,7 +1,12 @@
-from pydantic.dataclasses import dataclass
-from dataclasses import asdict
+"""Codex Hook 协议实体。
+
+当前只强制实体化 UserPromptSubmit；其他 Hook 仍由各自处理器保留字典响应，待协议
+稳定后再逐步迁移。
+"""
+
+from dataclasses import asdict, dataclass, fields
 import json
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, TextIO
 
 from notice import hook_notice
 
@@ -49,15 +54,53 @@ class CommonOutput:
 
 @dataclass
 class UserPromptSubmitInput(CommonInput):
+    """经过类型和事件名称校验的 UserPromptSubmit 输入。"""
+
+    hook_event_name: Literal["UserPromptSubmit"]
+    """必须是 UserPromptSubmit，避免把其他 Hook 输入误送到本处理链。"""
+
     turn_id: str
     """特定于 Codex 的扩展。当前活动的 Codex 轮次 ID。"""
 
     prompt: str
     """用户提示词。"""
 
+    def __post_init__(self) -> None:
+        """校验运行时真正依赖的字段，避免错误事件进入提示处理链。"""
+        required = {
+            "session_id": self.session_id,
+            "cwd": self.cwd,
+            "model": self.model,
+            "turn_id": self.turn_id,
+            "prompt": self.prompt,
+        }
+        for name, value in required.items():
+            if not isinstance(value, str):
+                raise TypeError(f"{name} must be a string")
+        if self.hook_event_name != "UserPromptSubmit":
+            raise ValueError("hook_event_name must be UserPromptSubmit")
+        if self.transcript_path is not None and not isinstance(self.transcript_path, str):
+            raise TypeError("transcript_path must be a string or null")
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "UserPromptSubmitInput":
+        """Create the typed input while ignoring host fields not used by the plugin."""
+        allowed = {field.name for field in fields(cls)}
+        return cls(**{key: value for key, value in raw.items() if key in allowed})
+
+    @classmethod
+    def load_json(cls, stream: TextIO) -> "UserPromptSubmitInput":
+        """Read and validate one UserPromptSubmit JSON object."""
+        raw = json.load(stream)
+        if not isinstance(raw, dict):
+            raise ValueError("hook input must be a JSON object")
+        return cls.from_dict(raw)
+
 
 @dataclass
 class UserPromptSubmitSpecificOutput:
+    """UserPromptSubmit 注入额外开发者上下文时使用的专属字段。"""
+
     hookEventName: Literal["UserPromptSubmit"]
     """钩子事件名称"""
 
@@ -67,6 +110,8 @@ class UserPromptSubmitSpecificOutput:
 
 @dataclass
 class UserPromptSubmitOutput:
+    """UserPromptSubmit 可继续、警告或阻止请求的协议输出。"""
+
     systemMessage: Optional[str] = None
     """显示在 UI 或事件流中的警告信息。"""
 
@@ -104,9 +149,11 @@ class UserPromptSubmitOutput:
         编码失败。意外的 bytes 值也会先解码，避免再次触发 JSON 序列化异常。
         """
         def json_default(value: Any) -> str:
+            """只为意外 bytes 提供安全降级，其他未知类型仍明确报错。"""
             if isinstance(value, bytes):
                 return value.decode("utf-8", errors="replace")
             raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
+        # 省略 None 字段，避免向 Hook 协议发送没有语义的 null 值。
         payload = {key: value for key, value in asdict(self).items() if value is not None}
         return json.dumps(payload, ensure_ascii=True, default=json_default)

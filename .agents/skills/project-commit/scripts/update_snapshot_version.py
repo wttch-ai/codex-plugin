@@ -1,3 +1,9 @@
+"""同步刷新插件清单与 README 中的 SNOPSHOT 调试版本号。
+
+脚本只维护当前仓库约定的两个版本位置，并保留文件原有换行风格，避免提交时
+产生与版本更新无关的整文件差异。
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -29,6 +35,7 @@ README_VERSION_RE = re.compile(
 
 
 def repository_root() -> Path:
+    """通过 Git 获取当前仓库根目录，避免依赖脚本启动位置。"""
     result = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
         check=True,
@@ -39,16 +46,23 @@ def repository_root() -> Path:
 
 
 def read_preserving_newlines(path: Path) -> str:
+    """读取 UTF-8 文本，同时禁止 Python 自动转换换行符。"""
     with path.open("r", encoding="utf-8", newline="") as stream:
         return stream.read()
 
 
 def write_preserving_newlines(path: Path, content: str) -> None:
+    """按传入内容原样写回换行符，保持仓库既有文件格式。"""
     with path.open("w", encoding="utf-8", newline="") as stream:
         stream.write(content)
 
 
 def next_snapshot_version(current: str, now: datetime) -> str:
+    """生成严格递增的下一个 SNOPSHOT 版本。
+
+    已是快照版本时保留 SemVer 核心；稳定版本则提升 patch。若调用时间不晚于
+    现有快照时间，至少推进一秒，保证连续提交也得到不同版本。
+    """
     snapshot = SNAPSHOT_RE.fullmatch(current)
     if snapshot:
         core = ".".join(
@@ -73,6 +87,7 @@ def next_snapshot_version(current: str, now: datetime) -> str:
 
 
 def update_versions(root: Path, now: datetime) -> tuple[str, str]:
+    """以清单版本为准，同时更新 plugin.json 与 README 并返回新旧版本。"""
     manifest_path = root / ".codex-plugin" / "plugin.json"
     readme_path = root / "README.md"
     if not manifest_path.is_file() or not readme_path.is_file():
@@ -88,6 +103,7 @@ def update_versions(root: Path, now: datetime) -> tuple[str, str]:
         raise ValueError("plugin manifest version must be a string")
 
     new_version = next_snapshot_version(current, now.replace(microsecond=0))
+    # 用受控正则替换文本而非重新序列化 JSON，避免改变清单缩进和字段顺序。
     updated_manifest, manifest_count = MANIFEST_VERSION_RE.subn(
         rf"\g<prefix>{new_version}\g<suffix>", manifest_text
     )
@@ -105,6 +121,7 @@ def update_versions(root: Path, now: datetime) -> tuple[str, str]:
 
 
 def parse_args() -> argparse.Namespace:
+    """解析仓库路径和测试可注入的确定性时间戳。"""
     parser = argparse.ArgumentParser(
         description="Refresh this repository's SemVer-compatible SNOPSHOT version."
     )
@@ -122,6 +139,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """执行版本同步并输出适合提交日志展示的新旧版本。"""
     args = parse_args()
     root = args.root.resolve() if args.root else repository_root()
     old_version, new_version = update_versions(root, args.timestamp or datetime.now())

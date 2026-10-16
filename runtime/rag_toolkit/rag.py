@@ -820,6 +820,7 @@ def heuristic_summary(groups):
 # ---------------------------------------------------------------- check
 
 def cmd_check(args):
+    """检查共享运行环境中的向量扩展、分块器和 Ollama 服务。"""
     print("== rag-toolkit 环境自检 ==")
     print(f"Python     : {sys.executable}")
     try:

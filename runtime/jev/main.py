@@ -14,6 +14,7 @@ from jev.decision import list_decisions, run_named_decision, run_user_prompt_sub
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """构建统一的 decision 与 hook 子命令树。"""
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -30,6 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """将 CLI 子命令分派到决策执行器或 UserPromptSubmit Hook。"""
     args = build_parser().parse_args(argv)
     if args.command == "decision":
         if args.decision_command == "list":
