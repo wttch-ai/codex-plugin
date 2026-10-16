@@ -11,7 +11,7 @@
           },
           {
             "type": "command",
-            "command": "python \"${PLUGIN_ROOT}/runtime/runner.py\" --mode run --hook-event UserPromptSubmit \"${PLUGIN_ROOT}/runtime/jev/main.py\" user-prompt-submit",
+            "command": "python \"${PLUGIN_ROOT}/runtime/runner.py\" --mode run --hook-event UserPromptSubmit \"${PLUGIN_ROOT}/runtime/jev/main.py\" hook user-prompt-submit",
             "timeout": 30
           }
         ]
@@ -33,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"${PLUGIN_ROOT}/runtime/runner.py\" --mode run --hook-event PreToolUse \"${PLUGIN_ROOT}/runtime/jev_gate/main.py\" jev-gate --policy \"${PLUGIN_ROOT}/skills/jev-gate/hook.yml\"",
+            "command": "python \"${PLUGIN_ROOT}/runtime/runner.py\" --mode run --hook-event PreToolUse \"${PLUGIN_ROOT}/runtime/jev/main.py\" hook pre-tool-use --policy \"${PLUGIN_ROOT}/skills/jev-gate/hook.yml\"",
             "timeout": 30
           }
         ]

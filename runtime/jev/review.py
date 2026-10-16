@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""调用配置的 OpenRouter 模型处理 JEV 审查规则。"""
+"""调用配置的 OpenRouter 模型处理 JEV Gate 审查规则。"""
 
 from __future__ import annotations
 

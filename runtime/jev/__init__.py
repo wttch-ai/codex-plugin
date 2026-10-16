@@ -1,1 +1,1 @@
-"""独立的 JEV runtime，不依赖任何 Hook 或 skill。"""
+"""统一的 JEV 决策、Hook Gate 与策略校验 runtime。"""

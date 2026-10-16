@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
-"""根据 JEV 策略评估一个 PreToolUse 事件。"""
+"""根据 JEV Gate 策略评估一个 PreToolUse 事件。"""
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-import json
 from pathlib import Path
 from typing import Any
 
 from .policy import matching_rule
 from .review import review
-from settings import audit_log_path, load_settings
-# 统一日志与可选的旧审计日志并行写入，兼容已有 audit_log 设置。
+from settings import load_settings
 from operation_log import record as record_operation
 from notice import hook_notice
 
@@ -43,7 +40,6 @@ def record_audit(
     """将一次已评估的决策追加为 JSONL 记录，且不写入完整工具输入或密钥。"""
     output = result["hookSpecificOutput"]
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
         "tool_name": event.get("tool_name"),
         "rule_id": rule.get("id", "unknown"),
         "policy_action": rule.get("action"),
@@ -51,11 +47,7 @@ def record_audit(
         "reason": output.get("permissionDecisionReason")
         or output.get("additionalContext"),
     }
-    path = audit_log_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # JSONL 每行一条记录，追加写入便于流式读取和故障后的部分恢复。
-    with path.open("a", encoding="utf-8") as stream:
-        stream.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    record_operation("jev_gate.audit", details=entry)
 
 
 def evaluate(policy: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:

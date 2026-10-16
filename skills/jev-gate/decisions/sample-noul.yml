@@ -15,21 +15,22 @@ questions:
 
 # noul 是上述正向命题为真的概率。此段由 UserPromptSubmit 适配器读取，
 # 将概率区间映射为 Hook 输出；它不包含 API Key、模型或传输配置。
-user_prompt_submit:
-  question: safe_to_run
-  thresholds:
-    allow_at_or_above: 0.80
-    uncertain_at_or_above: 0.40
-  actions:
-    # 命题为真的概率不低于 allow_at_or_above 时采用此分支。
-    allow:
-      action: allow
-      message: "JEV 判断该请求可自动处理。"
-    # 概率介于两个阈值之间时采用此分支；如需用户确认，应使用 block 而非 warn。
-    uncertain:
-      action: block
-      message: "JEV 判断可信度不足，请明确确认后重新提交。"
-    # 概率低于 uncertain_at_or_above 时采用此分支。
-    deny:
-      action: block
-      message: "该请求属于项目级任务。请在提示开头添加“【项目级任务】”以明确授权后重新提交。"
+hook:
+  user_prompt_submit:
+    question: safe_to_run
+    thresholds:
+      allow_at_or_above: 0.80
+      uncertain_at_or_above: 0.40
+    actions:
+      # 命题为真的概率不低于 allow_at_or_above 时采用此分支。
+      allow:
+        action: allow
+        message: "JEV 判断该请求可自动处理。"
+      # 概率介于两个阈值之间时采用此分支；如需用户确认，应使用 block 而非 warn。
+      uncertain:
+        action: block
+        message: "JEV 判断可信度不足，请明确确认后重新提交。"
+      # 概率低于 uncertain_at_or_above 时采用此分支。
+      deny:
+        action: block
+        message: "该请求属于项目级任务。请在提示开头添加“【项目级任务】”以明确授权后重新提交。"
