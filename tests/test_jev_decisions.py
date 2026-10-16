@@ -1,3 +1,5 @@
+"""验证项目 JEV 决策发现、校验、执行和 UserPromptSubmit 路由。"""
+
 import json
 import sys
 import tempfile
@@ -26,6 +28,8 @@ from hooks import UserPromptSubmitInput  # noqa: E402
 
 
 class JEVDecisionTypeTests(unittest.TestCase):
+    """保证示例只供复制，并验证项目安装后的自动 Hook 行为。"""
+
     decision_dir = ROOT / "skills" / "jev-gate" / "example"
 
     def assert_decision_type(self, name: str, expected: str) -> None:

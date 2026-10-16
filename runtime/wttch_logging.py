@@ -38,6 +38,7 @@ class JsonLineFormatter(logging.Formatter):
     """Serialize a LogRecord without writing arbitrary object representations."""
 
     def format(self, record: logging.LogRecord) -> str:
+        """将标准日志记录和可选结构化事件编码为单行 JSON。"""
         payload: dict[str, Any] = {
             "timestamp": datetime.fromtimestamp(record.created, timezone.utc).isoformat(),
             "level": record.levelname,
@@ -56,10 +57,12 @@ class SilentFileHandler(logging.FileHandler):
     """A FileHandler whose write failures never fall back to stderr."""
 
     def handleError(self, record: logging.LogRecord) -> None:
+        """吞掉文件写入错误，禁止 logging 默认回退到 stderr。"""
         return
 
 
 def _configure_root_logger() -> logging.Logger:
+    """按当天路径幂等配置唯一文件 Handler，并关闭向根 Logger 传播。"""
     logger = logging.getLogger(LOGGER_NAME)
     desired_path = log_path().resolve()
     with _LOCK:
@@ -70,6 +73,7 @@ def _configure_root_logger() -> logging.Logger:
                     logger.setLevel(logging.INFO)
                     logger.propagate = False
                     return logger
+            # 日期变化、测试目录变化或外部 Handler 注入时统一替换，避免重复写入。
             logger.removeHandler(handler)
             handler.close()
 
@@ -97,3 +101,61 @@ def get_logger(component: str) -> logging.Logger:
     logger.setLevel(logging.NOTSET)
     logger.propagate = True
     return logger
+
+
+def record_runtime(message: str) -> None:
+    """Record a runtime warning without touching stdout or stderr."""
+    try:
+        get_logger("runtime").warning(
+            message,
+            extra={"event": {"operation": "runtime", "result": "warning"}},
+        )
+    except (OSError, TypeError, ValueError, KeyError):
+        return
+
+
+def record_operation(
+    operation: str,
+    *,
+    result: str = "ok",
+    details: dict[str, Any] | None = None,
+) -> None:
+    """Append a filtered operation event without affecting plugin behavior."""
+    event: dict[str, Any] = {"operation": operation, "result": result}
+    if details:
+        event["details"] = {
+            key: value for key, value in details.items() if value is not None
+        }
+    try:
+        get_logger("operation").info(operation, extra={"event": event})
+    except (OSError, TypeError, ValueError, KeyError):
+        return
+
+
+def query_operations(
+    *,
+    operation: str | None = None,
+    result: str | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """Return recent structured operation events matching the filters."""
+    if limit < 1:
+        raise ValueError("limit must be positive")
+    matches: list[dict[str, Any]] = []
+    # 跨日按文件名顺序读取，最后统一截取最近的 limit 条匹配记录。
+    for path in sorted(log_root().glob("*.log")):
+        with path.open("r", encoding="utf-8") as stream:
+            for line in stream:
+                try:
+                    item = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                event = item.get("event") if isinstance(item, dict) else None
+                if not isinstance(event, dict) or "operation" not in event:
+                    continue
+                if operation and event.get("operation") != operation:
+                    continue
+                if result and event.get("result") != result:
+                    continue
+                matches.append({"timestamp": item.get("timestamp"), **event})
+    return matches[-limit:]

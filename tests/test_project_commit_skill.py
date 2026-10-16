@@ -1,3 +1,5 @@
+"""验证项目提交 Skill 的 SNOPSHOT 版本推进与双文件同步。"""
+
 import importlib.util
 import json
 import tempfile
@@ -21,7 +23,10 @@ SPEC.loader.exec_module(MODULE)
 
 
 class ProjectCommitSkillTests(unittest.TestCase):
+    """覆盖连续快照、稳定版迁移和清单/README 原子同步规则。"""
+
     def test_existing_snapshot_keeps_core_and_advances_timestamp(self):
+        """连续快照保留核心版本并保证时间戳严格递增。"""
         current = "0.1.44-SNOPSHOT-2026-10-16T10-04-13"
         now = datetime(2026, 10, 16, 10, 4, 12)
         self.assertEqual(
@@ -30,6 +35,7 @@ class ProjectCommitSkillTests(unittest.TestCase):
         )
 
     def test_stable_version_enters_next_patch_snapshot(self):
+        """稳定版进入调试周期时提升 patch。"""
         self.assertEqual(
             MODULE.next_snapshot_version(
                 "1.2.3+codex.20261016", datetime(2026, 10, 16, 11, 22, 33)
@@ -38,6 +44,7 @@ class ProjectCommitSkillTests(unittest.TestCase):
         )
 
     def test_updates_manifest_and_readme_together(self):
+        """版本脚本必须同步更新清单和 README。"""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             manifest_path = root / ".codex-plugin" / "plugin.json"

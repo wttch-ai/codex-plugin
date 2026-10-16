@@ -15,7 +15,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from wttch_config import load_config, openrouter_api_key
 from hooks import UserPromptSubmitInput, UserPromptSubmitOutput
-from operation_log import record as record_operation
+from wttch_logging import record_operation
 
 
 PROJECT_DECISION_ROOT = Path(".agents") / "wttch" / "jev-decisions"
@@ -103,6 +103,7 @@ def decision_files(cwd: Path | None = None) -> list[Path]:
 
 
 def load_decision(path: Path) -> dict:
+    """读取并完整校验一个项目决策或只读示例。"""
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict) or data.get("version") != 1:
         raise ValueError(f"JEV 决策格式无效：{path}")
@@ -123,6 +124,7 @@ def load_decision(path: Path) -> dict:
 
 
 def resolve(name: str, cwd: Path | None = None) -> Path:
+    """仅在项目决策目录中按文件名解析可执行决策。"""
     for path in decision_files(cwd):
         if path.stem == name or path.name == name:
             return path
@@ -248,10 +250,7 @@ def evaluate_user_prompt(event: UserPromptSubmitInput) -> UserPromptSubmitOutput
 def run_user_prompt_submit_hook() -> int:
     """执行 UserPromptSubmit Hook，并把配置或服务错误视为阻止。"""
     try:
-        raw = json.load(sys.stdin)
-        if not isinstance(raw, dict):
-            raise ValueError("hook input must be a JSON object")
-        result = evaluate_user_prompt(UserPromptSubmitInput(**raw))
+        result = evaluate_user_prompt(UserPromptSubmitInput.load_json(sys.stdin))
     except Exception as exc:
         result = UserPromptSubmitOutput.block(f"UserPrompt JEV Gate 未执行：{exc}")
         record_operation("prompt_jev_decision", result="error")
@@ -261,6 +260,7 @@ def run_user_prompt_submit_hook() -> int:
 
 
 def run(decision: Path, request_input: dict) -> int:
+    """执行已解析决策，并把 Decisions API 原始对象写入 stdout。"""
     definition = load_decision(decision)
     state = request_input.get("state")
     if not isinstance(state, str):

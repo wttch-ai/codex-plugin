@@ -110,8 +110,7 @@ stdout 或 stderr。
 ├── runtime/runner.py                 # 统一准备环境并启动 Skill/Hook
 ├── runtime/plugin_utils.py            # 不含值的配置索引
 ├── runtime/settings.py               # 项目功能设置读取与校验
-├── runtime/operation_log.py          # 统一操作日志和查询
-├── runtime/wttch_logging.py          # 仅写文件的标准 logging 配置
+├── runtime/wttch_logging.py          # 仅写文件的统一日志、操作记录和查询
 ├── runtime/wttch_config.py            # Wttch 工作目录配置读取
 ├── runtime/model_gate.py             # 模型 Gate
 ├── runtime/jev/                      # 统一 JEV 决策与决策 Hook runtime

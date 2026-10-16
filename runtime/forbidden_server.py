@@ -11,7 +11,7 @@ from typing import Any
 import yaml
 
 from notice import hook_notice
-from operation_log import record as record_operation
+from wttch_logging import record_operation
 
 
 CONFIG_RELATIVE_PATH = Path(".agents") / "wttch" / "forbidden-server.yml"
@@ -29,6 +29,7 @@ def config_path(event: dict[str, Any]) -> Path | None:
 
 
 def load_rules(event: dict[str, Any]) -> list[dict[str, str]]:
+    """加载并规范化离工具调用工作目录最近的 forbidden-server 规则。"""
     path = config_path(event)
     if path is None:
         return []
@@ -55,6 +56,7 @@ def event_text(event: dict[str, Any]) -> str:
 
 
 def response(action: str, rule: dict[str, str]) -> dict[str, Any]:
+    """把命中规则转换为符合 PreToolUse 协议的阻止或警告响应。"""
     message = hook_notice(
         f"forbidden-server 命中 {rule['target']}（{rule['description']}），规则为 {action}。"
     )
@@ -66,6 +68,7 @@ def response(action: str, rule: dict[str, str]) -> dict[str, Any]:
 
 
 def evaluate(event: dict[str, Any]) -> dict[str, Any]:
+    """匹配工具输入，并让 block 在同时命中多条规则时优先。"""
     text = event_text(event)
     matches = [rule for rule in load_rules(event) if rule["target"] in text]
     if not matches:
@@ -76,10 +79,12 @@ def evaluate(event: dict[str, Any]) -> dict[str, Any]:
 
 
 def main() -> int:
+    """处理一个 PreToolUse JSON 事件，并只向 stdout 写协议响应。"""
     try:
         event = json.load(sys.stdin)
         result = evaluate(event)
         output = result["hookSpecificOutput"]
+        # warn/allow 都不带 permissionDecision，需要由响应形态还原日志决策。
         decision = output.get("permissionDecision")
         if decision is None:
             decision = "warn" if "additionalContext" in output else "allow"

@@ -3,20 +3,16 @@
 
 from __future__ import annotations
 
-import json
 import re
 import sys
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any
-
-from pydantic import TypeAdapter
 
 from hooks import UserPromptSubmitInput, UserPromptSubmitOutput
 from settings import load_settings
 from wttch_config import CONFIG_PATH
 # 模型 Gate 记录最终决策，便于查询被阻止、警告或放行的请求数量。
-from operation_log import record as record_operation
+from wttch_logging import record_operation
 
 
 def normalize_model(value: str) -> str:
@@ -60,12 +56,9 @@ def evaluate(event: UserPromptSubmitInput, settings: dict[str, Any]) -> UserProm
 
 
 def load_user_prompt_submit_input() -> UserPromptSubmitInput:
+    """从 stdin 读取并构造强类型 UserPromptSubmit 输入。"""
     # Codex 通过标准输入传入单个 JSON 对象，标准输出只能保留 Hook 协议响应。
-    raw = json.load(sys.stdin)
-    if not isinstance(raw, dict):
-        raise ValueError("hook input must be a JSON object")
-
-    return UserPromptSubmitInput(**raw)
+    return UserPromptSubmitInput.load_json(sys.stdin)
 
 
 def main() -> int:

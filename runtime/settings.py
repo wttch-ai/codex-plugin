@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from operation_log import log_path, query as query_operations, record as record_operation
+from wttch_logging import log_path, query_operations, record_operation
 from wttch_config import CONFIG_PATH, load_config
 
 
