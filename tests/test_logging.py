@@ -19,15 +19,21 @@ sys.path.insert(0, str(ROOT / "runtime"))
 from runner import main as runner_main  # noqa: E402
 from wttch_logging import (  # noqa: E402
     LOGGER_NAME,
+    LOG_LINE_PATTERN,
     log_path,
-    query_operations,
+    query_log,
     record_operation,
     record_runtime,
+    render_field,
 )
 
 
 class UnifiedLoggingTests(unittest.TestCase):
-    """覆盖日志路径、JSONL 事件、查询接口和 runner 状态。"""
+    """覆盖日志路径、Spring Boot 文本布局、静默保证、查询接口和 runner 状态。
+
+    测试始终通过 ``WTTCH_PLUGIN_LOG_DIR`` 使用临时目录，既验证生产代码的目录覆盖
+    能力，也确保不会读取或污染开发者 ``~/.wttch/logs`` 中的真实日志。
+    """
 
     def tearDown(self) -> None:
         """关闭文件 Handler，避免 Windows 锁住临时日志目录。"""
@@ -43,8 +49,18 @@ class UnifiedLoggingTests(unittest.TestCase):
             path = log_path(moment)
         self.assertEqual(path, Path.home() / ".wttch" / "logs" / "2026-10-16.log")
 
+    def test_operation_fields_remain_on_one_log_line(self) -> None:
+        """含空白、引号或换行的字段必须转义，不能破坏日志首行边界。"""
+        self.assertEqual(render_field("allow"), "allow")
+        self.assertEqual(render_field('needs "review"'), '"needs \\"review\\""')
+        self.assertEqual(render_field("first\nsecond"), '"first\\nsecond"')
+
     def test_logs_only_to_daily_file(self) -> None:
-        """运行时和操作事件只能进入 JSONL 文件，不能进入控制台。"""
+        """两类事件必须共用文本日志，同时严格保持 stdout/stderr 为空。
+
+        除了检查布局正则，还验证组件 Logger、字段渲染、关键词筛选和大小写无关的级别
+        筛选，防止格式变更导致查询接口与实际文件脱节。
+        """
         with tempfile.TemporaryDirectory() as directory:
             stdout = StringIO()
             stderr = StringIO()
@@ -66,15 +82,24 @@ class UnifiedLoggingTests(unittest.TestCase):
             self.assertEqual(stderr.getvalue(), "")
             files = list(Path(directory).glob("*.log"))
             self.assertEqual(len(files), 1)
-            entries = [json.loads(line) for line in files[0].read_text(encoding="utf-8").splitlines()]
-            self.assertEqual([entry["logger"] for entry in entries], [
-                "wttch.operation",
-                "wttch.runtime",
-            ])
+            lines = files[0].read_text(encoding="utf-8").splitlines()
+            # 使用生产查询相同的正则解析，确保写入格式和读取格式共同演进。
+            entries = [LOG_LINE_PATTERN.match(line) for line in lines]
+            self.assertTrue(all(entries), lines)
+            self.assertEqual(
+                [(entry.group("level"), entry.group("logger")) for entry in entries],
+                [("INFO", "wttch.operation"), ("WARNING", "wttch.runtime")],
+            )
+            self.assertEqual(
+                entries[0].group("message"),
+                "test.operation result=ok decision=allow",
+            )
+            self.assertEqual(entries[1].group("message"), "runtime diagnostic")
 
             with patch.dict(os.environ, {"WTTCH_PLUGIN_LOG_DIR": directory}):
-                operations = query_operations(operation="test.operation")
-            self.assertEqual(operations[0]["details"], {"decision": "allow"})
+                self.assertEqual(query_log(keyword="test.operation"), [lines[0]])
+                self.assertEqual(query_log(level="warning"), [lines[1]])
+                self.assertEqual(query_log(keyword="absent.operation"), [])
 
             # Windows cannot remove an open FileHandler target.
             for handler in list(logger.handlers):
@@ -82,7 +107,7 @@ class UnifiedLoggingTests(unittest.TestCase):
                 handler.close()
 
     def test_runner_status_reports_runtime_and_logging_without_writing_logs(self) -> None:
-        """status 只报告安全元数据，且查询本身不能创建日志。"""
+        """status 只报告安全元数据，且观察日志状态本身不能创建日志文件。"""
         with tempfile.TemporaryDirectory() as directory:
             stdout = StringIO()
             stderr = StringIO()
@@ -98,6 +123,8 @@ class UnifiedLoggingTests(unittest.TestCase):
             self.assertIn("virtual_environment", status["runtime"])
             self.assertIn("ready", status["runtime"])
             self.assertEqual(status["logging"]["directory"], directory)
+            # status 的格式标识是 plugin-utils 展示给用户的稳定契约。
+            self.assertEqual(status["logging"]["format"], "spring-boot")
             self.assertFalse(status["logging"]["console_output"])
             self.assertEqual(list(Path(directory).glob("*.log")), [])
 

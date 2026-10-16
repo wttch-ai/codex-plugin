@@ -1,11 +1,15 @@
+# 只读 score 决策示例：用于演示有序等级判断，不绑定任何 Hook。
+# 复制到项目决策目录后可通过 jev decision run 手动执行。
 version: 1
 group: 内置示例
 model: typesafe/jev-1.13
 questions:
   buying_intent:
+    # score 按 criteria 列表顺序返回等级，列表越靠后表示意向越强。
     type: score
     instructions: "这个潜在客户有多大购买意向？"
     criteria:
+      # 每个等级都应互斥、可观察，并保持从低到高的固定顺序。
       - "仅浏览，没有明确需求或时间表。"
       - "正在评估和比较方案，但没有截止日期。"
       - "准备购买，有预算和明确需求。"

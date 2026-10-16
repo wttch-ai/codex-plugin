@@ -54,7 +54,12 @@ class CommonOutput:
 
 @dataclass
 class UserPromptSubmitInput(CommonInput):
-    """经过类型和事件名称校验的 UserPromptSubmit 输入。"""
+    """经过类型和事件名称校验的 UserPromptSubmit 输入。
+
+    该实体是模型 Gate 与 JEV Hook 的共同入口。它只保留当前运行时使用的字段，宿主未来
+    增加的未知字段会在 ``from_dict`` 中忽略；缺少必填字段、字段类型错误或事件名称不符
+    则立即拒绝，避免其他 Hook 的载荷被误处理为用户提示。
+    """
 
     hook_event_name: Literal["UserPromptSubmit"]
     """必须是 UserPromptSubmit，避免把其他 Hook 输入误送到本处理链。"""
@@ -66,7 +71,7 @@ class UserPromptSubmitInput(CommonInput):
     """用户提示词。"""
 
     def __post_init__(self) -> None:
-        """校验运行时真正依赖的字段，避免错误事件进入提示处理链。"""
+        """在直接构造和 JSON 构造两条路径上执行相同的运行时校验。"""
         required = {
             "session_id": self.session_id,
             "cwd": self.cwd,
@@ -84,13 +89,16 @@ class UserPromptSubmitInput(CommonInput):
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "UserPromptSubmitInput":
-        """Create the typed input while ignoring host fields not used by the plugin."""
+        """从宿主对象创建实体，并忽略当前版本尚未使用的扩展字段。
+
+        只忽略未知字段，不为缺失字段提供默认值；必填字段缺失仍由 dataclass 构造器报错。
+        """
         allowed = {field.name for field in fields(cls)}
         return cls(**{key: value for key, value in raw.items() if key in allowed})
 
     @classmethod
     def load_json(cls, stream: TextIO) -> "UserPromptSubmitInput":
-        """Read and validate one UserPromptSubmit JSON object."""
+        """从文本流读取单个 JSON 对象，并通过 ``from_dict`` 构造实体。"""
         raw = json.load(stream)
         if not isinstance(raw, dict):
             raise ValueError("hook input must be a JSON object")
@@ -99,7 +107,11 @@ class UserPromptSubmitInput(CommonInput):
 
 @dataclass
 class UserPromptSubmitSpecificOutput:
-    """UserPromptSubmit 注入额外开发者上下文时使用的专属字段。"""
+    """UserPromptSubmit 注入额外开发者上下文时使用的专属字段。
+
+    ``hookEventName`` 固定为 UserPromptSubmit，``additionalContext`` 会作为开发者上下文
+    进入当前请求；它适合警告和路由提示，不等同于阻止决定。
+    """
 
     hookEventName: Literal["UserPromptSubmit"]
     """钩子事件名称"""
@@ -110,7 +122,12 @@ class UserPromptSubmitSpecificOutput:
 
 @dataclass
 class UserPromptSubmitOutput:
-    """UserPromptSubmit 可继续、警告或阻止请求的协议输出。"""
+    """UserPromptSubmit 可继续、警告或阻止请求的协议输出。
+
+    警告通过 ``systemMessage`` 和 ``hookSpecificOutput.additionalContext`` 同时提供 UI
+    可见提示与模型上下文；阻止则只使用协议规定的 ``decision=block`` 和 ``reason``。
+    未使用字段在序列化时省略，而不是输出 null。
+    """
 
     systemMessage: Optional[str] = None
     """显示在 UI 或事件流中的警告信息。"""

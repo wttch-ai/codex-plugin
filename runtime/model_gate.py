@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""处理 UserPromptSubmit 事件中的模型限制。"""
+"""处理 UserPromptSubmit 事件中的项目级模型限制。
+
+输入必须先构造为 ``UserPromptSubmitInput``，输出必须使用
+``UserPromptSubmitOutput``。模型名会统一大小写和分隔符后再与项目配置比较；命中时按
+``model_gate_action`` 警告或阻止。配置缺失或格式错误不会阻止用户继续修复项目，但会
+通过实体响应注入可见说明。日志只记录最终决定，不记录用户提示词。
+"""
 
 from __future__ import annotations
 

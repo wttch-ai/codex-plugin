@@ -5,7 +5,7 @@ Wttch 的私人 Codex 插件，用来集中维护可复用的 Skills、生命周
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.44-SNOPSHOT-2026-10-16T11-03-24`
+- 当前版本：`0.1.44-SNOPSHOT-2026-10-16T14-40-10`
 - 使用范围：私人插件
 
 ## 快速开始
@@ -88,10 +88,10 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 ### 功能开关
 
 项目 `.agents/wttch/config.yml` 配置 OpenRouter Decisions API 和模型 Gate。
-插件操作与运行诊断统一记录到本机按日期分割的 JSON 行日志
+插件操作与运行诊断统一记录到本机按日期分割的 Spring Boot 默认格式文本日志
 `~/.wttch/logs/YYYY-MM-DD.log`，日志模块只使用文件 Handler，不会写入 Hook 的
 stdout 或 stderr。
-可用 `python runtime/runner.py --mode run runtime/settings.py query-log` 查询，并可按操作类型和结果筛选。
+可用 `python runtime/runner.py --mode run runtime/settings.py query-log` 查询，并可按日志级别和关键词筛选。
 
 ### 插件辅助工具
 

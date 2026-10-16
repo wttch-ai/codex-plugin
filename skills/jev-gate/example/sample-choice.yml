@@ -1,11 +1,16 @@
+# 只读 choice 决策示例：不会被插件自动发现或执行。
+# 复制到项目 .agents/wttch/jev-decisions/ 后，才会成为可通过 CLI 执行的项目决策。
 version: 1
 group: 内置示例
+# model 是 OpenRouter Decisions API 使用的类型安全决策模型，不是 Codex 会话模型。
 model: typesafe/jev-1.13
 questions:
   team:
+    # choice 要求 API 从 criteria 的键中选择一个结果。
     type: choice
     instructions: "这条消息应该由哪个团队处理？"
     criteria:
+      # criteria 的键是稳定机器值，描述用于说明各选项的业务边界。
       billing: "支付、付款、发票、退款。"
       technical: "缺陷、故障、集成、API 错误。"
       sales: "定价、升级、新账户。"
