@@ -5,7 +5,7 @@ Wttch 的私人 Codex 插件，用来集中维护可复用的 Skills、生命周
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.44-SNOPSHOT-2026-10-16T10-04-13`
+- 当前版本：`0.1.44-SNOPSHOT-2026-10-16T10-11-03`
 - 使用范围：私人插件
 
 ## 快速开始
