@@ -27,16 +27,6 @@
             "timeout": 30
           }
         ]
-      },
-      {
-        "matcher": "Bash|apply_patch|Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"${PLUGIN_ROOT}/runtime/runner.py\" --mode run --hook-event PreToolUse \"${PLUGIN_ROOT}/runtime/jev/main.py\" hook pre-tool-use --policy \"${PLUGIN_ROOT}/skills/jev-gate/hook.yml\"",
-            "timeout": 30
-          }
-        ]
       }
     ]
   }

@@ -5,7 +5,7 @@ Wttch 的私人 Codex 插件，用来集中维护可复用的 Skills、生命周
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.44-SNOPSHOT-2026-10-16T10-11-03`
+- 当前版本：`0.1.44-SNOPSHOT-2026-10-16T10-53-04`
 - 使用范围：私人插件
 
 ## 快速开始
@@ -41,8 +41,8 @@ wttch-codex-plugin@wttch-ai  installed, enabled
 
 ### JEV 决策与 Hook
 
-JEV 使用统一 runtime，可发现插件内置决策以及当前项目的
-`.agents/wttch/jev-decisions/*.yml`。决策定义使用官方的 `questions` 格式，支持：
+JEV 使用统一 runtime，只发现当前项目的 `.agents/wttch/jev-decisions/*.yml`。
+决策定义使用官方的 `questions` 格式，支持：
 
 - `choice`：固定选项选择；
 - `noul`：真假判断；
@@ -61,8 +61,8 @@ echo '{"state":"需要判断的动态输入"}' |
 python runtime/runner.py --mode run runtime/jev/main.py decision run sample-choice
 ```
 
-PreToolUse Gate 使用独立的 `skills/jev-gate/hook.yml` 配置；项目级 JEV 决策可通过
-`hook.user_prompt_submit` 声明自动绑定已启用的插件 UserPromptSubmit Hook。
+项目级 JEV 决策可通过 `hook.user_prompt_submit` 声明自动绑定已启用的插件
+UserPromptSubmit Hook。
 通用 `decision run` 命令只执行 YAML 中定义的 `choice`、`noul` 与 `score` 问题并返回
 结构化结果；声明在 `hook` 下的适配器则由已启用的插件 Hook 自动路由。
 
@@ -87,8 +87,8 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 
 ### 功能开关
 
-项目 `.agents/wttch/config.yml` 统一配置 JEV Gate、模型 Gate、OpenRouter 审查、
-决策原因和审计日志。插件操作与运行诊断统一记录到本机按日期分割的 JSON 行日志
+项目 `.agents/wttch/config.yml` 配置 OpenRouter Decisions API 和模型 Gate。
+插件操作与运行诊断统一记录到本机按日期分割的 JSON 行日志
 `~/.wttch/logs/YYYY-MM-DD.log`，日志模块只使用文件 Handler，不会写入 Hook 的
 stdout 或 stderr。
 可用 `python runtime/runner.py --mode run runtime/settings.py query-log` 查询，并可按操作类型和结果筛选。
@@ -113,12 +113,9 @@ stdout 或 stderr。
 ├── runtime/wttch_logging.py          # 仅写文件的标准 logging 配置
 ├── runtime/wttch_config.py            # Wttch 工作目录配置读取
 ├── runtime/model_gate.py             # 模型 Gate
-├── runtime/jev/                      # 统一 JEV 决策与 Hook runtime
+├── runtime/jev/                      # 统一 JEV 决策与决策 Hook runtime
 │   ├── main.py                       # 唯一 CLI 入口
 │   ├── decision.py                   # Decisions API 与 UserPromptSubmit
-│   ├── policy.py                     # Hook 策略加载和匹配
-│   ├── review.py                     # OpenRouter 审查
-│   ├── gate.py                       # Gate 评估和审计
 │   └── __init__.py
 ├── runtime/rag_toolkit/               # 插件代码；RAG 数据保留在调用项目内
 ├── requirements.txt                  # 共享运行环境的 Python 依赖
@@ -127,9 +124,10 @@ stdout 或 stderr。
 └── skills/
     ├── README.md                     # Skill 开发约定
     ├── jev-gate/
+    │   ├── SKILL.md                  # JEV 决策说明
+    │   └── example/*.yml             # 只供 Skill 查看和复制的示例
     ├── rag-toolkit/                   # 项目本地 RAG 记忆库
     │   └── SKILL.md
-    │   └── decisions/*.yml            # 内置 JEV 决策
     ├── plugin-settings/
     │   └── SKILL.md                  # 功能开关说明
     └── plugin-utils/
@@ -156,7 +154,7 @@ Agent Plugins 格式解析，导致 `.codex-plugin/plugin.json` 中的 Hook 声�
 
 - Codex Desktop 或支持本地插件的 Codex CLI；
 - Python 3.10 或更高版本；
-- 使用 OpenRouter `review` 规则时需要 OpenRouter API Key；
+- 执行 JEV 决策时需要 OpenRouter API Key；
 - Hook 必须经过用户审查并信任后才会运行。
 
 ## Python 运行时维护
@@ -184,43 +182,30 @@ Skill 与 Hook 都通过 `runtime/runner.py --mode run` 从本地 Python 转交�
 ```yaml
 openrouter:
   api_key: "sk-or-v1-..."
+  decisions_url: "https://openrouter.ai/api/alpha/decisions"
+  timeout: 60
 ```
 
 `.agents/wttch/config.yml` 应由项目 `.gitignore` 忽略，不应提交。Wttch 插件只从该
-项目文件读取 `openrouter.api_key`：Hook 使用事件 `cwd`，普通 Skill 运行时脚本使用其
-进程工作目录。其他插件不会自动读取该配置。
+项目文件读取 `openrouter.api_key`、`openrouter.decisions_url` 和 `openrouter.timeout`：
+Hook 使用事件 `cwd`，普通 Skill 运行时脚本使用其进程工作目录。决策模型由各决策 YAML
+的 `model` 字段指定。其他插件不会自动读取该配置。
 
-模型、API 地址和超时仍通过以下环境变量配置：
+不要把真实密钥写入决策 YAML、README、脚本、示例文件或 Git 提交。
 
-| 变量 | 是否必需 | 说明 |
-| --- | --- | --- |
-| `JEV_OPENROUTER_MODEL` | review 时必需 | OpenRouter 模型 ID，例如 `provider/model-id` |
-| `JEV_OPENROUTER_BASE_URL` | 可选 | 默认 `https://openrouter.ai/api/v1` |
-| `JEV_OPENROUTER_TIMEOUT` | 可选 | 请求超时秒数，默认 `20` |
+## 决策 Hook 与 JEV runtime
 
-示例：
-
-```bash
-export JEV_OPENROUTER_MODEL="provider/model-id"
-export JEV_OPENROUTER_BASE_URL="https://openrouter.ai/api/v1"
-export JEV_OPENROUTER_TIMEOUT="20"
-```
-
-不要把真实密钥写入 `hook.yml`、README、脚本、示例文件或 Git 提交。
-
-## Hook 配置与 JEV runtime
-
-Hook 专用配置位于 `skills/jev-gate/hook.yml`，只负责工具匹配和 Hook 动作。
-它与 JEV 决策定义分离。内置决策位于 `skills/jev-gate/decisions/*.yml`，项目级
-决策位于项目根目录的 `.agents/wttch/jev-decisions/*.yml`。
+所有 JEV 行为都在项目决策 YAML 中定义。可执行决策只位于项目根目录的
+`.agents/wttch/jev-decisions/*.yml`。插件的 `skills/jev-gate/example/*.yml`
+只供 Skill 查看和复制，不会出现在决策列表中，也不能按名称执行。
 
 对于需要绑定 `UserPromptSubmit` 的 `noul` 决策，可在决策文件顶层添加
 `hook.user_prompt_submit`。该字段引用一个正向的 `noul` 问题（例如“是否可安全自动
 处理”），并在 YAML 中定义概率阈值和三个分支的 `allow`、`warn` 或 `block` 动作：
 
 `UserPromptSubmit` Hook 只会读取当前项目
-`.agents/wttch/jev-decisions/*.yml` 中的此类决策；插件自带的 `sample-*.yml`
-仅作为可复制模板，绝不会直接启用。每个项目最多配置一个此类决策。
+`.agents/wttch/jev-decisions/*.yml` 中的此类决策；插件示例仅作为可复制模板，
+绝不会直接启用。每个项目最多配置一个此类决策。
 
 ```yaml
 hook:
@@ -270,10 +255,6 @@ questions:
 
 ```yaml
 features:
-  jev_gate: true
-  openrouter_review: true
-  show_decision_reason: true
-  audit_log: false
   model_gate: true
   model_gate_action: block # block 或 warn
   blocked_models:
@@ -287,33 +268,14 @@ features:
 
 ## 验证和测试
 
-检查 YAML 结构和正则表达式：
-
-```bash
-python runtime/runner.py --mode run runtime/jev/main.py policy validate \
-  --policy skills/jev-gate/hook.yml
-```
-
 列出 JEV 决策：
 
 ```bash
 python runtime/runner.py --mode run runtime/jev/main.py decision list
 ```
 
-模拟一个应被拒绝的 `PreToolUse` 事件：
-
-```bash
-printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"/workspace"}' \
-  | python runtime/runner.py --mode run runtime/jev/main.py hook pre-tool-use \
-      --policy skills/jev-gate/hook.yml
-```
-
-预期结果中的 `permissionDecision` 应为 `deny`。
-
-测试 `review` 规则前，请确认项目 `.agents/wttch/config.yml` 的
-`openrouter.api_key` 或 `OPENROUTER_API_KEY` 已设置，并且
-`JEV_OPENROUTER_MODEL` 已设置。
-运行时不会输出 API Key。
+执行决策或测试项目级 UserPromptSubmit 路由前，请确认项目
+`.agents/wttch/config.yml` 已设置 `openrouter.api_key`。运行时不会输出 API Key。
 
 ## 更新插件
 
@@ -372,7 +334,7 @@ Skill 建立重复的虚拟环境。
 ## 发布新版本
 
 1. 更新 `.codex-plugin/plugin.json` 的语义化版本号；
-2. 验证插件 JSON、Hook JSON 和策略文件；
+2. 验证插件 JSON、Hook JSON 和决策文件；
 3. 确认 Skills、Hooks、默认提示和主页信息完整；
 4. 重新安装插件并检查状态；
 5. 在 Desktop 或 CLI 中使用新会话验证 Hook。
@@ -380,11 +342,9 @@ Skill 建立重复的虚拟环境。
 ## 安全说明
 
 - 不提交 API Key、Token、Cookie、私钥或 `.env` 文件；
-- Hook 在执行工具前获得工具名称和输入，只将命中 `review` 规则的内容发送给
-  OpenRouter；
-- 静态 `allow` 和 `deny` 规则不会调用远程模型；
-- 修改 Gate 策略或 Hook 后，应重新审查其权限和失败行为；
-- 对生产环境建议使用 `fail_open: false`，并先在隔离环境测试。
+- 只有显式执行的决策或项目级 `hook.user_prompt_submit` 会把对应状态发送给
+  OpenRouter Decisions API；
+- 修改决策 Hook 后，应重新审查其权限和失败行为。
 
 ## License
 

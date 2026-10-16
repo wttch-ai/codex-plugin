@@ -1,5 +1,3 @@
-from contextlib import redirect_stdout
-from io import StringIO
 import json
 import sys
 import tempfile
@@ -13,21 +11,22 @@ sys.path.insert(0, str(ROOT / "runtime"))
 
 from jev.decision import (  # noqa: E402
     branch_for_probability,
+    decision_files,
     evaluate_user_prompt,
     find_user_prompt_decision,
     get_noul_probability,
     load_decision,
     response_for_probability,
+    resolve,
     user_prompt_submit_config,
     validate_user_prompt_submit,
 )
-from jev.main import build_parser, main  # noqa: E402
-from jev.policy import load_policy  # noqa: E402
+from jev.main import build_parser  # noqa: E402
 from hooks import UserPromptSubmitInput  # noqa: E402
 
 
 class JEVDecisionTypeTests(unittest.TestCase):
-    decision_dir = ROOT / "skills" / "jev-gate" / "decisions"
+    decision_dir = ROOT / "skills" / "jev-gate" / "example"
 
     def assert_decision_type(self, name: str, expected: str) -> None:
         definition = load_decision(self.decision_dir / name)
@@ -119,9 +118,27 @@ class JEVDecisionTypeTests(unittest.TestCase):
             self.assertIsNone(result.decision)
             self.assertIn("allow", result.systemMessage)
 
-    def test_builtin_hook_example_is_not_automatically_enabled(self) -> None:
+    def test_example_hook_is_not_automatically_enabled(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             self.assertIsNone(find_user_prompt_decision(Path(directory)))
+
+    def test_examples_are_not_discovered_or_resolved(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertEqual(decision_files(root), [])
+            with self.assertRaisesRegex(FileNotFoundError, "项目 JEV 决策不存在"):
+                resolve("sample-choice", root)
+
+    def test_only_project_decisions_are_discovered(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / ".agents" / "wttch" / "jev-decisions" / "active.yml"
+            target.parent.mkdir(parents=True)
+            target.write_text(
+                (self.decision_dir / "sample-choice.yml").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            self.assertEqual(decision_files(root), [target])
 
     def test_plugin_mounts_user_prompt_router(self) -> None:
         manifest = json.loads((ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
@@ -139,62 +156,12 @@ class JEVDecisionTypeTests(unittest.TestCase):
         self.assertEqual(len(levels), 4)
         self.assertTrue(all(isinstance(item, str) and item for item in levels))
 
-    def test_gate_policy_and_decision_schemas_are_separate(self) -> None:
-        policy = load_policy(ROOT / "skills" / "jev-gate" / "hook.yml")
-        self.assertGreater(len(policy["rules"]), 0)
-        with self.assertRaisesRegex(ValueError, "defaults 和 rules"):
-            load_policy(self.decision_dir / "sample-choice.yml")
-
     def test_unified_cli_command_tree(self) -> None:
         parser = build_parser()
         decision = parser.parse_args(["decision", "run", "sample-choice"])
         self.assertEqual((decision.command, decision.decision_command), ("decision", "run"))
         prompt_hook = parser.parse_args(["hook", "user-prompt-submit"])
         self.assertEqual(prompt_hook.hook_command, "user-prompt-submit")
-        tool_hook = parser.parse_args([
-            "hook", "pre-tool-use", "--policy", "skills/jev-gate/hook.yml"
-        ])
-        self.assertEqual(tool_hook.hook_command, "pre-tool-use")
-        policy = parser.parse_args([
-            "policy", "validate", "--policy", "skills/jev-gate/hook.yml"
-        ])
-        self.assertEqual(policy.policy_command, "validate")
-
-    def test_unified_policy_validate_command(self) -> None:
-        output = StringIO()
-        with redirect_stdout(output):
-            result = main([
-                "policy",
-                "validate",
-                "--policy",
-                str(ROOT / "skills" / "jev-gate" / "hook.yml"),
-            ])
-        self.assertEqual(result, 0)
-        self.assertEqual(json.loads(output.getvalue()), {"ok": True, "rules": 3})
-
-    def test_unified_pre_tool_use_hook_command(self) -> None:
-        event = {
-            "hook_event_name": "PreToolUse",
-            "tool_name": "Bash",
-            "tool_input": {"command": "rm -rf /"},
-            "cwd": str(ROOT),
-        }
-        output = StringIO()
-        with (
-            patch.object(sys, "stdin", StringIO(json.dumps(event))),
-            patch("jev.gate.record_operation"),
-            redirect_stdout(output),
-        ):
-            result = main([
-                "hook",
-                "pre-tool-use",
-                "--policy",
-                str(ROOT / "skills" / "jev-gate" / "hook.yml"),
-            ])
-        self.assertEqual(result, 0)
-        hook_output = json.loads(output.getvalue())["hookSpecificOutput"]
-        self.assertEqual(hook_output["hookEventName"], "PreToolUse")
-        self.assertEqual(hook_output["permissionDecision"], "deny")
 
 if __name__ == "__main__":
     unittest.main()

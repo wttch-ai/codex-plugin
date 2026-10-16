@@ -1,1 +1,1 @@
-"""统一的 JEV 决策、Hook Gate 与策略校验 runtime。"""
+"""统一的 JEV 决策与决策 Hook runtime。"""
