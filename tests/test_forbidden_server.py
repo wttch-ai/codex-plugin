@@ -9,8 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "runtime"))
 
 import forbidden_server  # noqa: E402
-import hook_runner  # noqa: E402
 import paths  # noqa: E402
+import runner  # noqa: E402
 
 
 class ForbiddenServerTests(unittest.TestCase):
@@ -44,38 +44,59 @@ class ForbiddenServerTests(unittest.TestCase):
 
 class RuntimeBootstrapTests(unittest.TestCase):
     def test_shared_runtime_location(self) -> None:
-        self.assertEqual(paths.RUNTIME_VENV, Path.home() / ".agents" / "wttch-runtime" / ".venv")
+        self.assertEqual(paths.RUNTIME_VENV, Path.home() / ".wttch" / "agent-runtime" / "venv")
 
     def test_runtime_python_path(self) -> None:
         venv = Path("runtime") / ".venv"
-        self.assertEqual(hook_runner.runtime_python_path(venv, "nt"), venv / "Scripts" / "python.exe")
-        self.assertEqual(hook_runner.runtime_python_path(venv, "posix"), venv / "bin" / "python")
+        self.assertEqual(runner.runtime_python_path(venv, "nt"), venv / "Scripts" / "python.exe")
+        self.assertEqual(runner.runtime_python_path(venv, "posix"), venv / "bin" / "python")
 
     def test_system_python_delegates_to_runtime(self) -> None:
         runtime_python = Path("runtime-python")
         completed = type("Completed", (), {"returncode": 7})()
-        argv = ["hook_runner.py", "PreToolUse", "target.py", "argument"]
         with (
-            patch.object(sys, "argv", argv),
             patch.object(sys, "prefix", str(Path.home() / "system-python")),
-            patch.object(hook_runner, "runtime_python_path", return_value=runtime_python),
+            patch.object(runner, "runtime_python_path", return_value=runtime_python),
             patch.object(Path, "is_file", return_value=True),
-            patch.object(hook_runner.subprocess, "run", return_value=completed) as run,
+            patch.object(runner.subprocess, "run", return_value=completed) as run,
         ):
-            self.assertEqual(hook_runner.main(), 7)
+            self.assertEqual(
+                runner.main(
+                    [
+                        "--mode",
+                        "run",
+                        "--hook-event",
+                        "PreToolUse",
+                        "target.py",
+                        "argument",
+                    ]
+                ),
+                7,
+            )
         command = run.call_args.args[0]
-        self.assertEqual(command[0], str(runtime_python))
-        self.assertEqual(command[-3:], ["PreToolUse", "target.py", "argument"])
+        self.assertEqual(
+            command,
+            [
+                str(runtime_python),
+                str(Path(runner.__file__).resolve()),
+                "--mode",
+                "run",
+                "--hook-event",
+                "PreToolUse",
+                "target.py",
+                "argument",
+            ],
+        )
 
     def test_prepare_uses_virtualenv_pip(self) -> None:
         runtime_python = Path("runtime-python")
         completed = type("Completed", (), {"returncode": 0})()
         with (
-            patch.object(hook_runner, "runtime_python_path", return_value=runtime_python),
+            patch.object(runner, "runtime_python_path", return_value=runtime_python),
             patch.object(Path, "is_file", return_value=True),
-            patch.object(hook_runner.subprocess, "run", return_value=completed) as run,
+            patch.object(runner.subprocess, "run", return_value=completed) as run,
         ):
-            self.assertEqual(hook_runner.prepare_runtime(), 0)
+            self.assertEqual(runner.prepare_runtime(), 0)
         self.assertEqual(
             run.call_args.args[0],
             [
@@ -87,6 +108,32 @@ class RuntimeBootstrapTests(unittest.TestCase):
                 str(paths.PLUGIN_ROOT / "requirements.txt"),
             ],
         )
+
+    def test_prepare_creates_venv_with_local_python(self) -> None:
+        runtime_python = Path("runtime-python")
+        completed = type("Completed", (), {"returncode": 0})()
+        with (
+            patch.object(runner, "runtime_python_path", return_value=runtime_python),
+            patch.object(Path, "is_file", return_value=False),
+            patch.object(runner.subprocess, "run", return_value=completed) as run,
+        ):
+            self.assertEqual(runner.main(["--mode", "prepare"]), 0)
+        self.assertEqual(
+            run.call_args_list[0].args[0],
+            [sys.executable, "-m", "venv", str(paths.RUNTIME_VENV)],
+        )
+        self.assertEqual(run.call_args_list[1].args[0][0], str(runtime_python))
+
+    def test_reinstall_forces_dependency_reinstall(self) -> None:
+        runtime_python = Path("runtime-python")
+        completed = type("Completed", (), {"returncode": 0})()
+        with (
+            patch.object(runner, "runtime_python_path", return_value=runtime_python),
+            patch.object(Path, "is_file", return_value=True),
+            patch.object(runner.subprocess, "run", return_value=completed) as run,
+        ):
+            self.assertEqual(runner.main(["--mode", "reinstall"]), 0)
+        self.assertEqual(run.call_args.args[0][-1], "--force-reinstall")
 
 
 if __name__ == "__main__":
