@@ -1,6 +1,6 @@
 ---
 name: jev-gate
-description: 发现、解释、验证、测试或执行由 OpenRouter 驱动的 JEV 决策及其 YAML 策略。
+description: 创建、发现、解释、验证、测试或执行由 OpenRouter 驱动的 JEV 决策及其 YAML Hook 适配。
 ---
 
 # JEV 决策
@@ -8,7 +8,8 @@ description: 发现、解释、验证、测试或执行由 OpenRouter 驱动的 
 本 Skill 的 `example/*.yml` 只用于查看和复制，不是已安装决策，也不能被运行时列出
 或按名称执行。项目可执行决策只放在 `.agents/wttch/jev-decisions/*.yml`，支持三种
 JEV 类型：`choice`、`noul`、`score`。其中 `allow`、`deny`、
-`review` 是策略动作，不是 JEV 类型。决策文件只定义固定的类型、候选项和提示词；
+`uncertain` 是 `noul` 的概率分支，`allow`、`warn`、`block` 是 Hook 动作；它们都不是
+JEV 类型。决策文件只定义固定的类型、候选项和提示词；
 具体 `question` 在每次执行时由程序输入或 Hook 事件提供。
 项目决策声明 `hook.user_prompt_submit` 后，只要插件的 JEV UserPromptSubmit Hook 已启用，
 统一入口就会自动发现并执行它。所有 JEV 行为都通过项目决策 YAML
@@ -17,6 +18,26 @@ JEV 类型：`choice`、`noul`、`score`。其中 `allow`、`deny`、
 用户要求查看示例时，读取 `example/*.yml` 并说明其字段；不要把示例描述成当前可用
 决策。用户要求启用某个示例时，先将其复制到目标项目的
 `.agents/wttch/jev-decisions/`，再按项目需求修改。
+
+## 创建项目决策
+
+1. 将最接近需求的 `example/*.yml` 复制到目标项目的
+   `.agents/wttch/jev-decisions/<decision-name>.yml`。不要直接修改或启用插件示例。
+2. 将判断目标写成一个正向、可回答真假的 `noul` 问题。例如要区分编排器代码和业务
+   代码，应询问“该请求是否只维护当前编排器项目”，而不是含糊地询问“这是什么任务”。
+3. 在 `criteria.true` 和 `criteria.false` 中写清边界，并让
+   `hook.user_prompt_submit.question` 引用该 `noul` 问题。
+4. 用 `allow_at_or_above` 和 `uncertain_at_or_above` 将概率划分为 `allow`、
+   `uncertain`、`deny` 三个分支。每个分支分别配置 `action` 和非空 `message`；
+   `action` 可取 `allow`、`warn` 或 `block`。
+5. `warn` 只会让请求继续并给当前 Agent 注入上下文，不会自动启动另一个 Agent。需要
+   提示路由时，在消息中写出目标 Agent；需要强制用户改走该 Agent 时使用 `block`；
+   需要真正自动调度时，应实现专用 Hook 适配器。
+6. 一个项目最多只能有一个声明 `hook.user_prompt_submit` 的决策。普通的手动决策可以有
+   多个，但不要声明该 Hook。
+
+编排器项目的创建与路由示例位于 `example/orchestrator-routing.yml`。复制后，将示例中的
+`business-code-agent` 替换为该编排器项目实际提供的 Agent 名称。
 
 列出当前项目决策：
 

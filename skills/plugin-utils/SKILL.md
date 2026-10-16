@@ -52,10 +52,16 @@ python "${PLUGIN_ROOT}/runtime/runner.py" --mode run \
 
 查询会读取日志文件并将筛选结果显式输出；不要在 Hook 执行期间主动查询或展示日志。
 
+## 配置示例
+
+`example/config.yml` 是插件支持的完整配置示例，不是当前项目配置，也不会被 Hook 或
+runtime 自动读取。查看示例时应明确告知用户它只包含演示值和占位符，不能把其中的
+API Key 当作有效凭据。
+
 ## 创建默认项目配置
 
 仅当用户明确要求创建、生成或初始化 Wttch 默认配置时执行。将
-`${PLUGIN_ROOT}/wttch-config-example.yml` 复制到当前项目的
+`${PLUGIN_ROOT}/skills/plugin-utils/example/config.yml` 复制到当前项目的
 `.agents/wttch/config.yml`，并创建缺失的父目录。
 
 目标文件已存在时不要覆盖；报告它已存在，并让用户决定是否自行替换或修改。复制后只报告

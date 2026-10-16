@@ -1,0 +1,15 @@
+# 这是 Wttch 插件配置示例，不是运行时配置，不会被插件自动读取。
+# 复制到目标项目的 .agents/wttch/config.yml 后再按项目需要修改。
+# 不要在本示例中写入真实 API Key、Token 或其他敏感值。
+openrouter:
+  api_key: "sk-or-v1-your-openrouter-api-key"
+  decisions_url: "https://openrouter.ai/api/alpha/decisions"
+  timeout: 60
+
+features:
+  model_gate: true
+  model_gate_action: block
+  blocked_models:
+    - gpt-6-luna
+    - gpt-6-sol
+    - gpt-6-astra

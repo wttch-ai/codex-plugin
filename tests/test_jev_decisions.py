@@ -56,6 +56,27 @@ class JEVDecisionTypeTests(unittest.TestCase):
             "message": "JEV 判断可信度不足，请明确确认后重新提交。",
         })
 
+    def test_orchestrator_routing_example_uses_distinct_warnings(self) -> None:
+        decision = load_decision(self.decision_dir / "orchestrator-routing.yml")
+        routing = decision["hook"]["user_prompt_submit"]
+        self.assertEqual(routing["question"], "orchestrator_maintenance")
+        self.assertEqual(
+            {branch["action"] for branch in routing["actions"].values()}, {"warn"}
+        )
+        messages = {
+            branch: output["message"]
+            for branch, output in routing["actions"].items()
+        }
+        self.assertEqual(len(set(messages.values())), 3)
+        self.assertIn("当前编排器项目", messages["allow"])
+        self.assertIn("business-code-agent", messages["deny"])
+        orchestrator_output = response_for_probability(routing, 0.90)
+        business_output = response_for_probability(routing, 0.10)
+        self.assertIsNone(orchestrator_output.decision)
+        self.assertIn("当前编排器项目", orchestrator_output.systemMessage)
+        self.assertIsNone(business_output.decision)
+        self.assertIn("business-code-agent", business_output.systemMessage)
+
     def test_user_prompt_submit_routes_noul_probability(self) -> None:
         routing = load_decision(self.decision_dir / "sample-noul.yml")["hook"]["user_prompt_submit"]
         self.assertEqual(branch_for_probability(routing, 0.80), "allow")

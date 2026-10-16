@@ -5,7 +5,7 @@ Wttch 的私人 Codex 插件，用来集中维护可复用的 Skills、生命周
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.44-SNOPSHOT-2026-10-16T10-53-04`
+- 当前版本：`0.1.44-SNOPSHOT-2026-10-16T11-03-24`
 - 使用范围：私人插件
 
 ## 快速开始
@@ -105,6 +105,7 @@ stdout 或 stderr。
 .
 ├── .codex-plugin/plugin.json         # Codex 插件清单
 ├── .agents/plugins/marketplace.json  # Codex marketplace 入口
+├── .agents/skills/project-config/    # 本仓库配置维护 Skill
 ├── hooks/hooks.json                  # 生命周期 Hooks
 ├── runtime/runner.py                 # 统一准备环境并启动 Skill/Hook
 ├── runtime/plugin_utils.py            # 不含值的配置索引
@@ -131,7 +132,8 @@ stdout 或 stderr。
     ├── plugin-settings/
     │   └── SKILL.md                  # 功能开关说明
     └── plugin-utils/
-        └── SKILL.md                  # 配置、运行时与日志辅助功能
+        ├── SKILL.md                  # 配置、运行时与日志辅助功能
+        └── example/config.yml        # 只供查看和复制的完整配置示例
 ```
 
 ### `PLUGIN_ROOT` 和插件清单
@@ -176,7 +178,7 @@ Skill 与 Hook 都通过 `runtime/runner.py --mode run` 从本地 Python 转交�
 
 ## 配置 OpenRouter
 
-将 `wttch-config-example.yml` 的内容写入项目根目录的
+将 `skills/plugin-utils/example/config.yml` 的内容写入项目根目录的
 `.agents/wttch/config.yml`，再填入 OpenRouter API Key：
 
 ```yaml
@@ -250,8 +252,8 @@ questions:
 ## 功能开关
 
 功能开关只从调用项目的 `.agents/wttch/config.yml` 读取；没有本机设置文件、插件内
-默认值或覆盖优先级。使用 `wttch-config-example.yml` 作为完整模板，并在项目配置中
-直接修改：
+默认值或覆盖优先级。使用 `skills/plugin-utils/example/config.yml` 作为完整示例，
+复制到项目配置后再修改：
 
 ```yaml
 features:
