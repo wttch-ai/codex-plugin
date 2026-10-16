@@ -1,0 +1,35 @@
+version: 1
+group: 编排器项目示例
+model: typesafe/jev-1.13
+questions:
+  orchestrator_maintenance:
+    type: noul
+    instructions: >-
+      该用户请求是否只涉及当前编排器项目本身的代码、配置、提示词、Skill、Hook、
+      Agent 定义或运行时维护，而不要求直接修改由编排器负责处理的业务项目代码？
+    criteria:
+      "true": >-
+        只维护当前编排器项目，包括编排流程、Agent、Skill、Hook、提示词、配置和运行时。
+      "false": >-
+        要求实现、修改、修复或测试业务项目的代码、配置、数据、接口或部署内容。
+
+hook:
+  user_prompt_submit:
+    question: orchestrator_maintenance
+    thresholds:
+      allow_at_or_above: 0.80
+      uncertain_at_or_above: 0.40
+    actions:
+      allow:
+        action: warn
+        message: >-
+          这是编排器代码维护任务。正常在当前编排器项目中完成，不要转交业务代码 Agent。
+      uncertain:
+        action: warn
+        message: >-
+          暂时无法确认这是编排器维护还是业务代码任务。先明确目标仓库和修改边界，再决定执行方式。
+      deny:
+        action: warn
+        message: >-
+          这是业务代码任务。不要直接在当前编排器项目中实现；请使用编排器提供的
+          business-code-agent 执行，并将任务目标和业务项目上下文交给该 Agent。
