@@ -1,5 +1,6 @@
 # 这是当前仓库供 Wttch Hook 和 Skill 读取的项目配置，不是分发给用户的配置示例。
 # 完整示例见 skills/plugin-utils/example/config.yml；仓库内只保留无效的凭据占位符。
+# 字段含义和安全说明只在规范示例维护，避免本项目配置演变成第二份分发模板。
 openrouter:
   api_key: "sk-or-v1-your-openrouter-api-key"
   decisions_url: "https://openrouter.ai/api/alpha/decisions"

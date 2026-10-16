@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Prepare the plugin environment and run plugin Python entry points in it."""
+"""准备共享 Python 环境并统一启动插件 Skill/Hook 入口。
+
+runner 必须能由用户机器上的本地 Python 直接启动，因此本文件及其顶层导入只能依赖
+Python 标准库和插件自身的轻量模块。``prepare``/``reinstall`` 负责维护
+``~/.wttch/agent-runtime/venv``；``run`` 先从本地 Python 转交到该环境，再执行目标脚本；
+``status`` 在环境损坏或尚未创建时仍可报告安全元数据。
+
+Hook 模式发生异常时必须输出合法协议响应，不能输出 traceback；非 Hook CLI 才允许把
+错误摘要写入 stderr。所有详细诊断通过 ``wttch_logging`` 进入仅文件日志。
+"""
 
 from __future__ import annotations
 
@@ -19,19 +28,30 @@ from wttch_logging import log_path, log_root, record_runtime
 
 
 def runtime_python_path(venv: Path = RUNTIME_VENV, platform: str = os.name) -> Path:
-    """Return the Python executable inside the shared plugin environment."""
+    """按平台返回共享虚拟环境内的 Python 可执行文件路径。
+
+    参数允许测试注入环境目录与平台名；生产调用使用 ``~/.wttch/agent-runtime/venv``
+    和当前操作系统。这里只计算路径，不探测文件是否存在。
+    """
     if platform == "nt":
         return venv / "Scripts" / "python.exe"
     return venv / "bin" / "python"
 
 
 def prepare_command(mode: str = "prepare") -> str:
-    """Return a safe environment maintenance command for user-facing errors."""
+    """生成可直接展示给用户的环境维护命令。
+
+    使用 runner 的绝对路径，避免 Hook 从任意项目工作目录启动时给出不可执行的相对命令。
+    """
     return f'python "{Path(__file__).resolve()}" --mode {mode}'
 
 
 def prepare_runtime(reinstall: bool = False) -> int:
-    """Create or update the persistent plugin environment using local Python."""
+    """用本地 Python 创建共享 venv，再用 venv 自身的 pip 同步依赖。
+
+    ``reinstall`` 只增加 ``--force-reinstall``，不切换到全局 pip。子进程退出码原样返回；
+    失败摘要写入仅文件日志，runner 不吞掉环境准备命令的失败状态。
+    """
     RUNTIME_VENV.parent.mkdir(parents=True, exist_ok=True)
     runtime_python = runtime_python_path()
     # 环境不存在时必须使用启动 runner 的本地 Python 创建，不能依赖全局 pip。
@@ -61,7 +81,11 @@ def prepare_runtime(reinstall: bool = False) -> int:
 
 
 def runtime_status() -> dict[str, object]:
-    """Return safe runtime and logging metadata without requiring the venv."""
+    """返回无需虚拟环境即可计算的运行时与日志安全元数据。
+
+    状态中不读取配置值、日志内容或凭据，只报告路径、环境是否就绪、文件是否存在、
+    日志布局与禁止控制台输出的约束，因此可由本地 Python 在故障排查阶段安全调用。
+    """
     runtime_python = runtime_python_path()
     current_log = log_path()
     return {
@@ -76,7 +100,8 @@ def runtime_status() -> dict[str, object]:
             "directory": str(log_root()),
             "current_file": str(current_log),
             "current_file_exists": current_log.is_file(),
-            "format": "json-lines",
+            # 该值描述文件布局，不代表运行时依赖 Spring Boot 或 Java。
+            "format": "spring-boot",
             "console_output": False,
         },
     }
@@ -85,7 +110,11 @@ def runtime_status() -> dict[str, object]:
 def hook_warning(
     hook_event: str, error: Exception
 ) -> UserPromptSubmitOutput | dict[str, object]:
-    """Build a non-blocking Codex Hook response."""
+    """把 runner 异常转换为对应 Hook 的非阻断响应。
+
+    UserPromptSubmit 必须返回强类型实体；其他尚未实体化的 Hook 暂用字典。所有响应都会
+    告知环境准备命令，但不会包含 traceback、环境变量或可能泄密的完整输入。
+    """
     reason = (
         f"Wttch Hook 未执行：{error}。请使用本地 Python 运行 "
         f"{prepare_command()} 以准备依赖。"
@@ -105,7 +134,12 @@ def hook_warning(
 
 
 def run_target(target: str, arguments: Sequence[str], hook_event: str | None = None) -> int:
-    """Run a plugin entry point inside the shared environment."""
+    """在共享环境中运行插件入口，并保持 Hook 协议通道可用。
+
+    本地 Python 首次调用时会用虚拟环境 Python 再启动 runner；第二阶段检测到
+    ``sys.prefix`` 已是目标 venv 后，通过 ``runpy`` 在同一进程执行目标脚本。Hook
+    失败被转换为协议响应并返回 0，避免宿主丢弃提示；普通 CLI 失败则写 stderr 并返回 1。
+    """
     try:
         runtime_python = runtime_python_path()
         # 首次由本地 Python 启动时转交给共享环境；环境内再次执行时直接运行目标。

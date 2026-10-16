@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Block or warn on project-configured forbidden tool-call targets."""
+"""根据项目规则对 PreToolUse 工具目标执行 block 或 warn。
+
+规则从工具调用工作目录向父目录查找最近的
+``.agents/wttch/forbidden-server.yml``。匹配只在内存中检查序列化后的 ``tool_input``，
+完整工具参数不会写入日志；日志只记录工具名和最终决定。多个规则同时命中时 block
+优先，配置或 JSON 错误则返回非阻断警告，方便用户修复项目配置。
+"""
 
 from __future__ import annotations
 

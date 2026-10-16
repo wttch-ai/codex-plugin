@@ -1,8 +1,12 @@
+# 编排器项目路由示例：根据请求是否只维护编排器本身，注入不同执行提示。
+# 本文件不会自动启用；复制到项目决策目录后，还应把 business-code-agent 替换为
+# 目标编排器实际提供的 Agent 名称。
 version: 1
 group: 编排器项目示例
 model: typesafe/jev-1.13
 questions:
   orchestrator_maintenance:
+    # 使用正向 noul 命题：概率越高，越应留在当前编排器仓库维护。
     type: noul
     instructions: >-
       该用户请求是否只涉及当前编排器项目本身的代码、配置、提示词、Skill、Hook、
@@ -14,6 +18,8 @@ questions:
         要求实现、修改、修复或测试业务项目的代码、配置、数据、接口或部署内容。
 
 hook:
+  # 声明此段后，启用的插件 UserPromptSubmit Hook 会自动发现并执行本决策。
+  # 一个项目最多只能有一个决策声明 user_prompt_submit，避免响应合并顺序不明确。
   user_prompt_submit:
     question: orchestrator_maintenance
     thresholds:
@@ -21,6 +27,7 @@ hook:
       uncertain_at_or_above: 0.40
     actions:
       allow:
+        # warn 表示请求继续，同时把 message 注入当前 Agent 上下文；它不会启动新 Agent。
         action: warn
         message: >-
           这是编排器代码维护任务。正常在当前编排器项目中完成，不要转交业务代码 Agent。

@@ -41,16 +41,16 @@ python "$env:PLUGIN_ROOT/runtime/runner.py" --mode status
 - `logging.directory`、`logging.current_file` 与文件是否存在；
 - 日志格式以及 `console_output: false` 安全状态。
 
-插件日志固定保存到 `~/.wttch/logs/YYYY-MM-DD.log`，每行一个 JSON 对象，并且不会
-写入 Hook 的 stdout 或 stderr。需要查询结构化操作记录时，通过共享环境运行：
+插件日志固定保存到 `~/.wttch/logs/YYYY-MM-DD.log`，每行一条 Spring Boot 默认格式文本，并且不会
+写入 Hook 的 stdout 或 stderr。需要检索日志行原文时，通过共享环境运行：
 
 ```bash
 python "${PLUGIN_ROOT}/runtime/runner.py" --mode run \
   "${PLUGIN_ROOT}/runtime/settings.py" query-log \
-  [--operation <name>] [--result <result>] [--limit <count>]
+  [--keyword <text>] [--level <LEVEL>] [--limit <count>]
 ```
 
-查询会读取日志文件并将筛选结果显式输出；不要在 Hook 执行期间主动查询或展示日志。
+查询会读取日志文件并输出匹配的日志行原文；不要在 Hook 执行期间主动查询或展示日志。
 
 ## 配置示例
 

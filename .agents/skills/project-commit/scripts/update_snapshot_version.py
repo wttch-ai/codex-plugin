@@ -87,7 +87,11 @@ def next_snapshot_version(current: str, now: datetime) -> str:
 
 
 def update_versions(root: Path, now: datetime) -> tuple[str, str]:
-    """以清单版本为准，同时更新 plugin.json 与 README 并返回新旧版本。"""
+    """以清单版本为准，同时更新 plugin.json 与 README。
+
+    两个目标文件必须同时存在，且各自只能匹配一个版本位置；任一计数异常都会在写入前
+    报错，防止只更新一处。返回 ``(旧版本, 新版本)`` 供提交流程展示和测试断言。
+    """
     manifest_path = root / ".codex-plugin" / "plugin.json"
     readme_path = root / "README.md"
     if not manifest_path.is_file() or not readme_path.is_file():

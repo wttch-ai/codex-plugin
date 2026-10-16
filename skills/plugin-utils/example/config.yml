@@ -2,13 +2,18 @@
 # 复制到目标项目的 .agents/wttch/config.yml 后再按项目需要修改。
 # 不要在本示例中写入真实 API Key、Token 或其他敏感值。
 openrouter:
+  # 仅为明显无效的格式占位符；复制后在未提交的项目配置中替换。
   api_key: "sk-or-v1-your-openrouter-api-key"
+  # Decisions API 地址和单次 HTTP 请求超时秒数。
   decisions_url: "https://openrouter.ai/api/alpha/decisions"
   timeout: 60
 
 features:
+  # 是否启用 UserPromptSubmit 模型限制；false 时忽略下面的动作和列表。
   model_gate: true
+  # 命中 blocked_models 时使用 block 阻止，或使用 warn 继续并注入警告。
   model_gate_action: block
+  # 匹配时会统一大小写以及空格、下划线、连字符，避免格式差异绕过限制。
   blocked_models:
     - gpt-6-luna
     - gpt-6-sol

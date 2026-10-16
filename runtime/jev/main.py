@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Unified CLI for JEV decisions, Hooks, and Gate policy validation."""
+"""JEV 项目决策与 Hook 的统一命令行入口。
+
+``decision list/run`` 面向 Skill 和人工调试，只发现项目
+``.agents/wttch/jev-decisions`` 中显式安装的决策；``hook user-prompt-submit`` 面向
+Codex Hook，自动寻找唯一绑定的项目决策。插件 ``example`` 目录不属于运行时搜索路径，
+因此安装插件本身不会启用任何示例策略。
+"""
 
 from __future__ import annotations
 
@@ -14,7 +20,11 @@ from jev.decision import list_decisions, run_named_decision, run_user_prompt_sub
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """构建统一的 decision 与 hook 子命令树。"""
+    """构建统一的 decision 与 hook 子命令树。
+
+    采用两级子命令而不是多个入口文件，使 Skill 手动执行与 Hook 自动执行共享同一套
+    决策加载、配置和网络请求实现。
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -31,7 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """将 CLI 子命令分派到决策执行器或 UserPromptSubmit Hook。"""
+    """将解析后的命令分派到列表、手动执行或 UserPromptSubmit 处理器。"""
     args = build_parser().parse_args(argv)
     if args.command == "decision":
         if args.decision_command == "list":

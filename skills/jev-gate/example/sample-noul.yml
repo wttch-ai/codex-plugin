@@ -1,8 +1,11 @@
+# noul + UserPromptSubmit Hook 的完整示例；示例目录不会被运行时自动扫描。
+# 启用前必须复制到项目 .agents/wttch/jev-decisions/，并按项目边界修改命题和提示。
 version: 1
 group: 内置示例
 model: typesafe/jev-1.13
 questions:
   safe_to_run:
+    # noul 返回下方正向命题为真的概率，而不是直接返回 allow/block。
     type: noul
     instructions: >-
       该输入是否属于允许自动处理的 AI 级任务？AI 级任务是修改或维护 AI 本身，
@@ -19,6 +22,8 @@ hook:
   user_prompt_submit:
     question: safe_to_run
     thresholds:
+      # 概率 >= 0.80 进入 allow；0.40 <= 概率 < 0.80 进入 uncertain；
+      # 概率 < 0.40 进入 deny。两个阈值都采用“包含下界”的语义。
       allow_at_or_above: 0.80
       uncertain_at_or_above: 0.40
     actions:

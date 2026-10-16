@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""显示 Wttch 插件当前已配置的项目，不显示任何配置值。"""
+"""为 plugin-utils Skill 提供不泄密的项目配置索引。
+
+本入口只返回当前项目配置中出现的字段路径，不返回字段值、默认值或推断值，尤其不会
+显示 OpenRouter API Key。运行时、日志状态和环境维护由统一 runner 负责，本文件只承担
+配置结构发现，避免辅助 Skill 意外读取敏感内容。
+"""
 
 from __future__ import annotations
 

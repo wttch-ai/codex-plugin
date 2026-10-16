@@ -24,7 +24,12 @@ USER_PROMPT_ACTIONS = {"allow", "warn", "block"}
 
 
 def user_prompt_submit_config(definition: dict) -> dict | None:
-    """Return the nested UserPromptSubmit hook configuration, when enabled."""
+    """返回决策中显式声明的 UserPromptSubmit 适配配置。
+
+    Hook 配置只能位于 ``hook.user_prompt_submit``。遇到旧的顶层写法时主动报错，避免
+    旧配置被静默忽略；遇到未知 Hook 名称也立即拒绝，使拼写错误不会导致保护失效。
+    未声明 ``hook`` 时返回 ``None``，表示该决策只能通过 CLI 手动执行。
+    """
     if "user_prompt_submit" in definition:
         raise ValueError("user_prompt_submit 已迁移到 hook.user_prompt_submit")
     hook = definition.get("hook")
@@ -97,13 +102,22 @@ def validate_user_prompt_submit(definition: dict) -> None:
 
 
 def decision_files(cwd: Path | None = None) -> list[Path]:
-    """返回当前项目显式安装的 JEV 决策。"""
+    """返回当前项目显式安装的 JEV 决策文件，并按文件名稳定排序。
+
+    插件自带 ``skills/jev-gate/example`` 不在搜索路径中，因此示例不会被自动列出、解析
+    或执行。用户必须先把示例复制到项目目录，完成一次明确的启用动作。
+    """
     project_root = (cwd or Path.cwd()) / PROJECT_DECISION_ROOT
     return sorted(project_root.glob("*.yml"), key=lambda path: path.stem)
 
 
 def load_decision(path: Path) -> dict:
-    """读取并完整校验一个项目决策或只读示例。"""
+    """读取并校验一个项目决策或只读示例。
+
+    基础校验保证版本、问题集合、问题类型、提示语和判定标准完整；随后校验可选的
+    UserPromptSubmit 映射。函数只返回通过校验的字典，后续执行路径可以依赖这些结构，
+    无需在请求 OpenRouter 前重复进行形状检查。
+    """
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict) or data.get("version") != 1:
         raise ValueError(f"JEV 决策格式无效：{path}")
@@ -124,7 +138,10 @@ def load_decision(path: Path) -> dict:
 
 
 def resolve(name: str, cwd: Path | None = None) -> Path:
-    """仅在项目决策目录中按文件名解析可执行决策。"""
+    """仅在项目决策目录中按文件名或 stem 解析可执行决策。
+
+    不接受任意路径，也不回退到插件示例目录，从入口处阻止绕过“复制后才启用”的约束。
+    """
     for path in decision_files(cwd):
         if path.stem == name or path.name == name:
             return path
@@ -132,7 +149,12 @@ def resolve(name: str, cwd: Path | None = None) -> Path:
 
 
 def request_decision(definition: dict, state: str, working_directory: Path | None = None) -> dict:
-    """执行一次 JEV 请求并返回已解码的对象，供 CLI 与 Hook 共用。"""
+    """调用 OpenRouter Decisions API，并返回经过顶层类型检查的对象。
+
+    API Key、端点和超时只从目标项目配置读取，禁止通过继承环境变量跨项目复用凭据。
+    网络、HTTP 与超时错误统一包装为 ``RuntimeError``，让 CLI 和 Hook 各自决定如何向
+    用户呈现；响应不是 JSON 对象时也拒绝继续，避免后续分支误判。
+    """
     payload = {
         "model": definition.get("model", "typesafe/jev-1.13"),
         "state": state,
@@ -166,7 +188,11 @@ def request_decision(definition: dict, state: str, working_directory: Path | Non
 
 
 def find_user_prompt_decision(cwd: Path) -> dict | None:
-    """返回当前项目唯一启用 UserPromptSubmit 的决策。"""
+    """发现当前项目唯一启用 UserPromptSubmit 的决策。
+
+    没有项目决策目录或没有声明该 Hook 时返回 ``None``。若同时存在多个绑定，因执行
+    顺序和合并语义不明确而直接报错，要求项目维护者只保留一个自动提示路由器。
+    """
     decision_dir = cwd / PROJECT_DECISION_ROOT
     if not decision_dir.is_dir():
         return None
@@ -181,7 +207,11 @@ def find_user_prompt_decision(cwd: Path) -> dict | None:
 
 
 def get_noul_probability(response: dict, question: str) -> float:
-    """从 Decisions API 响应提取经过校验的 noul 概率。"""
+    """从 Decisions API 响应提取指定问题的 noul 概率。
+
+    只接受 0 到 1 之间的数值，并显式排除 Python 中属于 ``int`` 子类的布尔值，避免
+    ``true``/``false`` 被错误当作 1/0 的可信概率。
+    """
     answers = response.get("answers")
     answer = answers.get(question) if isinstance(answers, dict) else None
     probability = answer.get("noul") if isinstance(answer, dict) else None
@@ -195,7 +225,12 @@ def get_noul_probability(response: dict, question: str) -> float:
 
 
 def branch_for_probability(routing: dict, probability: float) -> str:
-    """将正向 noul 概率划入 allow、uncertain 或 deny 分支。"""
+    """把正向命题概率映射到 allow、uncertain 或 deny 分支。
+
+    阈值使用“含下界”语义：等于 allow 阈值进入 allow，等于 uncertain 阈值进入
+    uncertain；只有低于 uncertain 阈值才进入 deny。该边界与 YAML 字段名
+    ``*_at_or_above`` 保持一致。
+    """
     thresholds = routing["thresholds"]
     if probability >= thresholds["allow_at_or_above"]:
         return "allow"
@@ -207,7 +242,12 @@ def branch_for_probability(routing: dict, probability: float) -> str:
 def response_for_probability(
     routing: dict, probability: float
 ) -> UserPromptSubmitOutput:
-    """将项目配置的 UserPromptSubmit 分支转为 Hook 响应。"""
+    """把概率分支配置转换为强类型 UserPromptSubmit 输出。
+
+    ``allow`` 和 ``warn`` 都让请求继续，但仍通过额外上下文公开 JEV 分支、概率与项目
+    消息；``block`` 才产生协议级阻止。这样 YAML 动作控制执行效果，分支名称只表达
+    分类结果，不会被误当作固定权限决定。
+    """
     branch = branch_for_probability(routing, probability)
     output = routing["actions"][branch]
     message = (
@@ -220,7 +260,12 @@ def response_for_probability(
 
 
 def evaluate_user_prompt(event: UserPromptSubmitInput) -> UserPromptSubmitOutput | None:
-    """执行当前项目显式启用的 UserPromptSubmit JEV 决策。"""
+    """对一个已校验的 UserPromptSubmit 实体执行项目 JEV 路由。
+
+    未启用项目决策时返回 ``None``，保持 Hook 静默放行。启用后只把用户提示词包装为
+    Decisions API 的 state，不发送会话记录；日志仅记录问题名、概率、分支和最终决定，
+    不记录提示词正文。
+    """
     definition = find_user_prompt_decision(Path(event.cwd))
     if definition is None:
         return None
@@ -248,7 +293,11 @@ def evaluate_user_prompt(event: UserPromptSubmitInput) -> UserPromptSubmitOutput
 
 
 def run_user_prompt_submit_hook() -> int:
-    """执行 UserPromptSubmit Hook，并把配置或服务错误视为阻止。"""
+    """从 stdin 执行 UserPromptSubmit 决策，并向 stdout 写协议实体。
+
+    输入解析、项目配置、网络或响应格式中的任何异常都采用失败关闭策略，转换成 block
+    响应并记录不含敏感值的错误状态。若项目没有启用决策则不输出任何内容，表示放行。
+    """
     try:
         result = evaluate_user_prompt(UserPromptSubmitInput.load_json(sys.stdin))
     except Exception as exc:
@@ -260,7 +309,11 @@ def run_user_prompt_submit_hook() -> int:
 
 
 def run(decision: Path, request_input: dict) -> int:
-    """执行已解析决策，并把 Decisions API 原始对象写入 stdout。"""
+    """执行 CLI 指定决策，并把 Decisions API 原始对象写入 stdout。
+
+    CLI 输入必须包含字符串 ``state``；与 Hook 路径不同，此入口不把响应映射成 Codex
+    权限决定，方便 Skill 查看完整答案并进行人工解释或调试。
+    """
     definition = load_decision(decision)
     state = request_input.get("state")
     if not isinstance(state, str):
@@ -270,7 +323,7 @@ def run(decision: Path, request_input: dict) -> int:
 
 
 def list_decisions() -> int:
-    """List built-in and project-local decisions."""
+    """列出当前项目可执行决策，不包含插件自带示例。"""
     print(json.dumps([
         {
             "name": path.stem,
@@ -284,7 +337,7 @@ def list_decisions() -> int:
 
 
 def run_named_decision(name: str) -> int:
-    """Read one decision request from stdin and execute it."""
+    """从 stdin 读取手动决策请求，解析项目决策名称后执行。"""
     request_input = json.load(sys.stdin)
     if not isinstance(request_input, dict):
         raise ValueError("JEV 输入必须是 JSON 对象")
