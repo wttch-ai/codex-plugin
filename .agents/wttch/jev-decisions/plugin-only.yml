@@ -1,0 +1,37 @@
+# 本项目只维护 Wttch Codex Plugin；业务项目命令必须被拦截。
+version: 1
+name: 业务命令拦截
+group: 本项目保护
+model: typesafe/jev-1.13
+
+questions:
+  plugin_maintenance_only:
+    type: noul
+    instructions: >-
+      该用户请求是否只涉及当前 Wttch Codex Plugin 仓库本身的实现、测试、文档、
+      技能、Hook、插件清单、运行时或开发环境，而不要求修改任何业务项目、产品功能、
+      用户数据、服务接口、部署或外部应用？
+    criteria:
+      "true": >-
+        只维护本插件仓库，例如修改 runtime、skills、hooks、测试、文档、依赖、
+        插件清单或本地开发配置。
+      "false": >-
+        要求实现、修改、调试、测试或部署任何业务项目、产品功能、用户数据、
+        服务接口、数据库、前端页面或外部应用。
+
+hook:
+  user_prompt_submit:
+    question: plugin_maintenance_only
+    thresholds:
+      allow_at_or_above: 0.80
+      uncertain_at_or_above: 0.40
+    actions:
+      allow:
+        action: allow
+        message: "这是 Wttch 插件维护请求，可以在当前项目中处理。"
+      uncertain:
+        action: block
+        message: "无法确定请求是否属于本插件维护。请明确说明要修改的是 Wttch 插件本身。"
+      deny:
+        action: block
+        message: "这是业务命令。本项目只维护 Wttch 插件，不能处理业务工作。"
