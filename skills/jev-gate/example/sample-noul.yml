@@ -1,6 +1,7 @@
 # noul + UserPromptSubmit Hook 的完整示例；示例目录不会被运行时自动扫描。
 # 启用前必须复制到项目 .agents/wttch/jev-decisions/，并按项目边界修改命题和提示。
 version: 1
+name: 自动处理判定
 group: 内置示例
 model: typesafe/jev-1.13
 questions:

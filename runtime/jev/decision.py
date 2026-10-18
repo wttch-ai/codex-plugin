@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import sys
+from time import perf_counter
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -15,7 +16,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from wttch_config import load_config, openrouter_api_key
 from hooks import UserPromptSubmitInput, UserPromptSubmitOutput
-from wttch_logging import record_operation
+from wttch_logging import record_jev_operation
 
 
 PROJECT_DECISION_ROOT = Path(".agents") / "wttch" / "jev-decisions"
@@ -56,6 +57,10 @@ def validate_user_prompt_submit(definition: dict) -> None:
     routing = user_prompt_submit_config(definition)
     if routing is None:
         return
+
+    display_name = definition.get("name")
+    if not isinstance(display_name, str) or not display_name.strip():
+        raise ValueError("声明 hook.user_prompt_submit 的决策必须提供非空 name")
 
     question_name = routing.get("question")
     questions = definition["questions"]
@@ -153,37 +158,71 @@ def request_decision(definition: dict, state: str, working_directory: Path | Non
 
     API Key、端点和超时只从目标项目配置读取，禁止通过继承环境变量跨项目复用凭据。
     网络、HTTP 与超时错误统一包装为 ``RuntimeError``，让 CLI 和 Hook 各自决定如何向
-    用户呈现；响应不是 JSON 对象时也拒绝继续，避免后续分支误判。
+    用户呈现；每次调用都会将请求、输出（或失败类型）与耗时写入本地文件日志。响应
+    不是 JSON 对象时也拒绝继续，避免后续分支误判。
     """
     payload = {
         "model": definition.get("model", "typesafe/jev-1.13"),
         "state": state,
         "questions": definition["questions"],
     }
-    # 凭据只允许来自当前项目配置，避免环境继承导致跨项目误用 Key。
-    key = openrouter_api_key(working_directory)
-    if not key:
-        raise RuntimeError(
-            "OpenRouter API key is not configured: set "
-            "<project>/.agents/wttch/config.yml openrouter.api_key"
-        )
-    config = load_config(working_directory)
-    openrouter = config.get("openrouter", {})
-    if not isinstance(openrouter, dict):
-        raise ValueError(".agents/wttch/config.yml openrouter must be an object")
-    request = Request(
-        str(openrouter.get("decisions_url", DEFAULT_ENDPOINT)),
-        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-        method="POST",
+    # 所有 JEV 类型及 Hook 都经过这个入口。请求与响应分别记录，便于按一次判决完整
+    # 还原输入、输出和耗时；payload 不包含从项目配置读取的 API Key。
+    record_jev_operation(
+        "jev_decision_input",
+        details={"input": json.dumps(payload, ensure_ascii=False, sort_keys=True)},
     )
+    started_at = perf_counter()
     try:
+        # 凭据只允许来自当前项目配置，避免环境继承导致跨项目误用 Key。
+        key = openrouter_api_key(working_directory)
+        if not key:
+            raise RuntimeError(
+                "OpenRouter API key is not configured: set "
+                "<project>/.agents/wttch/config.yml openrouter.api_key"
+            )
+        config = load_config(working_directory)
+        openrouter = config.get("openrouter", {})
+        if not isinstance(openrouter, dict):
+            raise ValueError(".agents/wttch/config.yml openrouter must be an object")
+        request = Request(
+            str(openrouter.get("decisions_url", DEFAULT_ENDPOINT)),
+            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            method="POST",
+        )
         with urlopen(request, timeout=float(openrouter.get("timeout", 60))) as response:
             response_payload = json.loads(response.read().decode("utf-8"))
+        if not isinstance(response_payload, dict):
+            raise RuntimeError("JEV 响应必须是 JSON 对象")
     except (HTTPError, URLError, TimeoutError) as exc:
-        raise RuntimeError(f"JEV 请求失败：{exc}") from exc
-    if not isinstance(response_payload, dict):
-        raise RuntimeError("JEV 响应必须是 JSON 对象")
+        error = RuntimeError(f"JEV 请求失败：{exc}")
+        record_jev_operation(
+            "jev_decision_output",
+            result="error",
+            details={
+                "output": json.dumps({"error": type(error).__name__}, ensure_ascii=False),
+                "runtime_ms": round((perf_counter() - started_at) * 1000, 3),
+            },
+        )
+        raise error from exc
+    except Exception as exc:
+        record_jev_operation(
+            "jev_decision_output",
+            result="error",
+            details={
+                "output": json.dumps({"error": type(exc).__name__}, ensure_ascii=False),
+                "runtime_ms": round((perf_counter() - started_at) * 1000, 3),
+            },
+        )
+        raise
+    record_jev_operation(
+        "jev_decision_output",
+        details={
+            "output": json.dumps(response_payload, ensure_ascii=False, sort_keys=True),
+            "runtime_ms": round((perf_counter() - started_at) * 1000, 3),
+        },
+    )
     return response_payload
 
 
@@ -240,7 +279,7 @@ def branch_for_probability(routing: dict, probability: float) -> str:
 
 
 def response_for_probability(
-    routing: dict, probability: float
+    routing: dict, probability: float, display_name: str
 ) -> UserPromptSubmitOutput:
     """把概率分支配置转换为强类型 UserPromptSubmit 输出。
 
@@ -251,7 +290,7 @@ def response_for_probability(
     branch = branch_for_probability(routing, probability)
     output = routing["actions"][branch]
     message = (
-        f"JEV 决策结果：{branch}；noul 可能性：{probability:.1%}。"
+        f"JEV[{display_name}] 判决结果：{branch}；noul 可能性：{probability:.1%}。"
         f"{output['message']}"
     )
     if output["action"] in {"allow", "warn"}:
@@ -279,8 +318,8 @@ def evaluate_user_prompt(event: UserPromptSubmitInput) -> UserPromptSubmitOutput
     )
     probability = get_noul_probability(response, routing["question"])
     branch = branch_for_probability(routing, probability)
-    result = response_for_probability(routing, probability)
-    record_operation(
+    result = response_for_probability(routing, probability, definition["name"].strip())
+    record_jev_operation(
         "prompt_jev_decision",
         details={
             "question": routing["question"],
@@ -302,7 +341,7 @@ def run_user_prompt_submit_hook() -> int:
         result = evaluate_user_prompt(UserPromptSubmitInput.load_json(sys.stdin))
     except Exception as exc:
         result = UserPromptSubmitOutput.block(f"UserPrompt JEV Gate 未执行：{exc}")
-        record_operation("prompt_jev_decision", result="error")
+        record_jev_operation("prompt_jev_decision", result="error")
     if result is not None:
         print(result.dump_json())
     return 0

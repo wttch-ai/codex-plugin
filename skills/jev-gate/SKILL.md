@@ -15,6 +15,10 @@ JEV 类型。决策文件只定义固定的类型、候选项和提示词；
 统一入口就会自动发现并执行它。所有 JEV 行为都通过项目决策 YAML
 定义，不再维护独立的 PreToolUse 策略文件。
 
+声明 `hook.user_prompt_submit` 的决策必须在顶层提供非空 `name`。该名称会显示在最终的
+`JEV[名称] 判决结果` 提示中。Hook 运行中的 `statusMessage` 由 Codex 在启动前显示，
+无法读取项目 YAML，因此固定为“正在 JEV 判决中…”。
+
 用户要求查看示例时，读取 `example/*.yml` 并说明其字段；不要把示例描述成当前可用
 决策。用户要求启用某个示例时，先将其复制到目标项目的
 `.agents/wttch/jev-decisions/`，再按项目需求修改。
@@ -27,13 +31,14 @@ JEV 类型。决策文件只定义固定的类型、候选项和提示词；
    代码，应询问“该请求是否只维护当前编排器项目”，而不是含糊地询问“这是什么任务”。
 3. 在 `criteria.true` 和 `criteria.false` 中写清边界，并让
    `hook.user_prompt_submit.question` 引用该 `noul` 问题。
-4. 用 `allow_at_or_above` 和 `uncertain_at_or_above` 将概率划分为 `allow`、
+4. 在顶层添加简短的 `name`，用于识别此自动判决。
+5. 用 `allow_at_or_above` 和 `uncertain_at_or_above` 将概率划分为 `allow`、
    `uncertain`、`deny` 三个分支。每个分支分别配置 `action` 和非空 `message`；
    `action` 可取 `allow`、`warn` 或 `block`。
-5. `warn` 只会让请求继续并给当前 Agent 注入上下文，不会自动启动另一个 Agent。需要
+6. `warn` 只会让请求继续并给当前 Agent 注入上下文，不会自动启动另一个 Agent。需要
    提示路由时，在消息中写出目标 Agent；需要强制用户改走该 Agent 时使用 `block`；
    需要真正自动调度时，应实现专用 Hook 适配器。
-6. 一个项目最多只能有一个声明 `hook.user_prompt_submit` 的决策。普通的手动决策可以有
+7. 一个项目最多只能有一个声明 `hook.user_prompt_submit` 的决策。普通的手动决策可以有
    多个，但不要声明该 Hook。
 
 编排器项目的创建与路由示例位于 `example/orchestrator-routing.yml`。复制后，将示例中的

@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from wttch_logging import log_path, query_log, record_operation
+from wttch_logging import jev_log_path, log_path, query_log, record_operation
 from wttch_config import CONFIG_PATH, load_config
 
 
@@ -80,7 +80,7 @@ def main(argv: list[str]) -> int:
         record_operation("settings.list")
         print(json.dumps({"config_file": str(Path.cwd() / CONFIG_PATH), "features": values}, ensure_ascii=False, indent=2))
         return 0
-    print(json.dumps({"log_file": str(log_path()), "entries": query_log(
+    print(json.dumps({"log_file": str(log_path()), "jev_log_file": str(jev_log_path()), "entries": query_log(
         keyword=args.keyword, level=args.level, limit=args.limit
     )}, ensure_ascii=False, indent=2))
     return 0

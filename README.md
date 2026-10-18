@@ -5,7 +5,7 @@ Wttch 的私人 Codex 插件，用来集中维护可复用的 Skills、生命周
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.44-SNOPSHOT-2026-10-16T14-40-10`
+- 当前版本：`0.1.44-SNOPSHOT-2026-10-19T00-45-16`
 - 使用范围：私人插件
 
 ## 快速开始
@@ -89,8 +89,12 @@ JSON 写入本地文件；调试完成后应移除该临时 Hook。
 
 项目 `.agents/wttch/config.yml` 配置 OpenRouter Decisions API 和模型 Gate。
 插件操作与运行诊断统一记录到本机按日期分割的 Spring Boot 默认格式文本日志
-`~/.wttch/logs/YYYY-MM-DD.log`，日志模块只使用文件 Handler，不会写入 Hook 的
-stdout 或 stderr。
+`~/.wttch/logs/YYYY-MM-DD.log`；JEV 判决独立记录到
+`~/.wttch/logs/jev-YYYY-MM-DD.log`。日志模块只使用文件 Handler，不会写入 Hook 的
+stdout 或 stderr。每次 JEV 判决都会记录 `jev_decision_input` 与
+`jev_decision_output`：前者包含实际请求输入，后者包含 API 输出（失败时为错误类型）和
+`runtime_ms`。这些记录可能含有提交给 JEV 的用户文本和业务数据，只保存在本机日志中，
+请按项目的数据保留要求保护或清理。
 可用 `python runtime/runner.py --mode run runtime/settings.py query-log` 查询，并可按日志级别和关键词筛选。
 
 ### 插件辅助工具
@@ -202,13 +206,15 @@ Hook 使用事件 `cwd`，普通 Skill 运行时脚本使用其进程工作目�
 
 对于需要绑定 `UserPromptSubmit` 的 `noul` 决策，可在决策文件顶层添加
 `hook.user_prompt_submit`。该字段引用一个正向的 `noul` 问题（例如“是否可安全自动
-处理”），并在 YAML 中定义概率阈值和三个分支的 `allow`、`warn` 或 `block` 动作：
+处理”），并在 YAML 中定义概率阈值和三个分支的 `allow`、`warn` 或 `block` 动作。
+这类决策还必须提供顶层 `name`，用于在结果提示中标识判决：
 
 `UserPromptSubmit` Hook 只会读取当前项目
 `.agents/wttch/jev-decisions/*.yml` 中的此类决策；插件示例仅作为可复制模板，
 绝不会直接启用。每个项目最多配置一个此类决策。
 
 ```yaml
+name: 自动处理判定
 hook:
   user_prompt_submit:
     question: safe_to_run
@@ -226,6 +232,9 @@ hook:
         action: block
         message: "JEV 判断该请求不适合自动处理。"
 ```
+
+Hook 运行时显示固定状态“正在 JEV 判决中…”。Codex 在显示该状态时尚未读取项目决策 YAML，
+因此无法在状态文本中动态替换 `name`；完成后会显示 `JEV[自动处理判定] 判决结果…`。
 
 概率达到 `allow_at_or_above` 时走 `allow`；介于两个阈值之间走 `uncertain`；其余
 走 `deny`。若需要用户明确确认，中间分支应使用 `block`，而不是会继续当前请求的

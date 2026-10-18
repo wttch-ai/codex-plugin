@@ -3,11 +3,13 @@
 Hook 的 stdout 是 Codex 协议通道，任何普通日志进入 stdout 或 stderr 都可能破坏
 Hook JSON。因此本模块只创建文件 Handler、关闭向 Python 根 Logger 的传播，并在
 文件不可写时静默降级到 ``NullHandler``。日志按本地日期写入
-``~/.wttch/logs/YYYY-MM-DD.log``，单行格式尽量与 Spring Boot 默认文件日志一致，
+``~/.wttch/logs/YYYY-MM-DD.log``；JEV 判决独立写入
+``~/.wttch/logs/jev-YYYY-MM-DD.log``。单行格式尽量与 Spring Boot 默认文件日志一致，
 方便熟悉 Java 服务日志的维护者直接阅读和检索。
 
 本模块同时负责运行诊断、结构化操作信息的文本化以及只读查询。调用方只能传入经过
-筛选的安全元数据，禁止把完整 Hook 输入、用户提示词、API Key 或工具参数写入日志。
+筛选的安全元数据。除 JEV 判决请求和响应（为支持判决审计而明确记录）外，调用方禁止
+把完整 Hook 输入、用户提示词、API Key 或工具参数写入日志。
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from paths import DEFAULT_LOG_ROOT
 
 
 LOGGER_NAME = "wttch"
+JEV_LOGGER_NAME = f"{LOGGER_NAME}.jev"
 _MANAGED_HANDLER = "_wttch_file_handler"
 _LOCK = RLock()
 
@@ -54,6 +57,12 @@ def log_path(moment: datetime | None = None) -> Path:
     """
     current = moment or datetime.now().astimezone()
     return log_root() / f"{current:%Y-%m-%d}.log"
+
+
+def jev_log_path(moment: datetime | None = None) -> Path:
+    """按本地日历日期返回独立的 JEV 判决日志文件路径。"""
+    current = moment or datetime.now().astimezone()
+    return log_root() / f"jev-{current:%Y-%m-%d}.log"
 
 
 def render_field(value: Any) -> str:
@@ -110,15 +119,15 @@ class SilentFileHandler(logging.FileHandler):
         return
 
 
-def _configure_root_logger() -> logging.Logger:
-    """幂等配置 Wttch 根 Logger，并在日期或测试目录变化时轮换文件。
+def _configure_file_logger(logger_name: str, desired_path: Path) -> logging.Logger:
+    """幂等配置指定的仅文件 Logger，并在日期或测试目录变化时轮换文件。
 
     ``_LOCK`` 防止同一进程中的并发 Hook 同时创建多个 Handler。函数会清理非本模块
     管理的 Handler，保证 Wttch Logger 不会继承 ConsoleHandler；创建文件失败时安装
     ``NullHandler``，同时抑制 ``logging.lastResort`` 向 stderr 输出。
     """
-    logger = logging.getLogger(LOGGER_NAME)
-    desired_path = log_path().resolve()
+    logger = logging.getLogger(logger_name)
+    desired_path = desired_path.resolve()
     with _LOCK:
         for handler in list(logger.handlers):
             if getattr(handler, _MANAGED_HANDLER, False):
@@ -145,6 +154,16 @@ def _configure_root_logger() -> logging.Logger:
         return logger
 
 
+def _configure_root_logger() -> logging.Logger:
+    """配置普通插件操作和运行诊断的按日文件 Logger。"""
+    return _configure_file_logger(LOGGER_NAME, log_path())
+
+
+def _configure_jev_logger() -> logging.Logger:
+    """配置 JEV 判决专用的按日文件 Logger。"""
+    return _configure_file_logger(JEV_LOGGER_NAME, jev_log_path())
+
+
 def get_logger(component: str) -> logging.Logger:
     """返回只向受管文件 Logger 传播的组件 Logger。
 
@@ -159,6 +178,11 @@ def get_logger(component: str) -> logging.Logger:
     logger.setLevel(logging.NOTSET)
     logger.propagate = True
     return logger
+
+
+def get_jev_logger() -> logging.Logger:
+    """返回不会传播到普通插件日志的 JEV 判决专用 Logger。"""
+    return _configure_jev_logger()
 
 
 def record_runtime(message: str) -> None:
@@ -194,6 +218,23 @@ def record_operation(
         return
 
 
+def record_jev_operation(
+    operation: str,
+    *,
+    result: str = "ok",
+    details: dict[str, Any] | None = None,
+) -> None:
+    """把 JEV 判决审计事件写入 ``jev-YYYY-MM-DD.log``。"""
+    fields = [f"result={render_field(result)}"]
+    for key, value in (details or {}).items():
+        if value is not None:
+            fields.append(f"{key}={render_field(value)}")
+    try:
+        get_jev_logger().info(f"{operation} {' '.join(fields)}")
+    except (OSError, TypeError, ValueError, KeyError):
+        return
+
+
 def query_log(
     *,
     keyword: str | None = None,
@@ -203,7 +244,7 @@ def query_log(
     """跨日期返回最近匹配的日志首行原文。
 
     ``level`` 不区分输入大小写，``keyword`` 对整行做区分大小写的字面包含匹配。
-    文件按 ``YYYY-MM-DD.log`` 名称升序读取，最终截取最后 ``limit`` 条，因此结果仍按
+    文件按名称升序读取（包括 ``jev-YYYY-MM-DD.log``），最终截取最后 ``limit`` 条，因此结果仍按
     时间先后排列。格式不合法的行和异常堆栈续行会被忽略；该查询不会创建新日志。
     """
     if limit < 1:
@@ -224,4 +265,5 @@ def query_log(
                 if keyword and keyword not in line:
                     continue
                 matches.append(line)
-    return matches[-limit:]
+    # 文件名前缀不同，不能依赖目录遍历顺序代表时间顺序。
+    return sorted(matches, key=lambda line: line[:23])[-limit:]

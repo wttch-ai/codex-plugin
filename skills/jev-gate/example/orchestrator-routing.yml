@@ -2,6 +2,7 @@
 # 本文件不会自动启用；复制到项目决策目录后，还应把 business-code-agent 替换为
 # 目标编排器实际提供的 Agent 名称。
 version: 1
+name: 编排器任务路由
 group: 编排器项目示例
 model: typesafe/jev-1.13
 questions:

@@ -24,7 +24,7 @@ from typing import Sequence
 from hooks import UserPromptSubmitOutput
 from notice import hook_notice
 from paths import PLUGIN_ROOT, RUNTIME_VENV
-from wttch_logging import log_path, log_root, record_runtime
+from wttch_logging import jev_log_path, log_path, log_root, record_runtime
 
 
 def runtime_python_path(venv: Path = RUNTIME_VENV, platform: str = os.name) -> Path:
@@ -88,6 +88,7 @@ def runtime_status() -> dict[str, object]:
     """
     runtime_python = runtime_python_path()
     current_log = log_path()
+    current_jev_log = jev_log_path()
     return {
         "runtime": {
             "root": str(RUNTIME_VENV.parent),
@@ -100,6 +101,8 @@ def runtime_status() -> dict[str, object]:
             "directory": str(log_root()),
             "current_file": str(current_log),
             "current_file_exists": current_log.is_file(),
+            "jev_current_file": str(current_jev_log),
+            "jev_current_file_exists": current_jev_log.is_file(),
             # 该值描述文件布局，不代表运行时依赖 Spring Boot 或 Java。
             "format": "spring-boot",
             "console_output": False,

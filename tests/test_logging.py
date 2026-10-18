@@ -19,9 +19,12 @@ sys.path.insert(0, str(ROOT / "runtime"))
 from runner import main as runner_main  # noqa: E402
 from wttch_logging import (  # noqa: E402
     LOGGER_NAME,
+    JEV_LOGGER_NAME,
     LOG_LINE_PATTERN,
+    jev_log_path,
     log_path,
     query_log,
+    record_jev_operation,
     record_operation,
     record_runtime,
     render_field,
@@ -37,10 +40,11 @@ class UnifiedLoggingTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         """关闭文件 Handler，避免 Windows 锁住临时日志目录。"""
-        logger = logging.getLogger(LOGGER_NAME)
-        for handler in list(logger.handlers):
-            logger.removeHandler(handler)
-            handler.close()
+        for logger_name in (LOGGER_NAME, JEV_LOGGER_NAME):
+            logger = logging.getLogger(logger_name)
+            for handler in list(logger.handlers):
+                logger.removeHandler(handler)
+                handler.close()
 
     def test_daily_log_filename(self) -> None:
         """日志文件名必须按本地日期切分。"""
@@ -49,11 +53,30 @@ class UnifiedLoggingTests(unittest.TestCase):
             path = log_path(moment)
         self.assertEqual(path, Path.home() / ".wttch" / "logs" / "2026-10-16.log")
 
+    def test_jev_daily_log_filename(self) -> None:
+        """判决审计日志必须使用独立的 jev- 日期文件名。"""
+        moment = datetime(2026, 10, 16, 12, 30)
+        with patch.dict(os.environ, {"WTTCH_PLUGIN_LOG_DIR": ""}):
+            path = jev_log_path(moment)
+        self.assertEqual(path, Path.home() / ".wttch" / "logs" / "jev-2026-10-16.log")
+
     def test_operation_fields_remain_on_one_log_line(self) -> None:
         """含空白、引号或换行的字段必须转义，不能破坏日志首行边界。"""
         self.assertEqual(render_field("allow"), "allow")
         self.assertEqual(render_field('needs "review"'), '"needs \\"review\\""')
         self.assertEqual(render_field("first\nsecond"), '"first\\nsecond"')
+
+    def test_jev_operations_use_the_dedicated_daily_file(self) -> None:
+        """JEV 审计事件不能混入普通插件操作日志。"""
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"WTTCH_PLUGIN_LOG_DIR": directory}):
+                record_jev_operation("jev_decision_input", details={"input": "state"})
+
+                files = list(Path(directory).glob("*.log"))
+                self.assertEqual([path.name for path in files], [jev_log_path().name])
+                line = files[0].read_text(encoding="utf-8").strip()
+                self.assertIn("jev_decision_input result=ok input=state", line)
+                self.assertEqual(query_log(keyword="jev_decision_input"), [line])
 
     def test_logs_only_to_daily_file(self) -> None:
         """两类事件必须共用文本日志，同时严格保持 stdout/stderr 为空。
@@ -123,6 +146,10 @@ class UnifiedLoggingTests(unittest.TestCase):
             self.assertIn("virtual_environment", status["runtime"])
             self.assertIn("ready", status["runtime"])
             self.assertEqual(status["logging"]["directory"], directory)
+            self.assertEqual(
+                status["logging"]["jev_current_file"],
+                str(Path(directory) / jev_log_path().name),
+            )
             # status 的格式标识是 plugin-utils 展示给用户的稳定契约。
             self.assertEqual(status["logging"]["format"], "spring-boot")
             self.assertFalse(status["logging"]["console_output"])
