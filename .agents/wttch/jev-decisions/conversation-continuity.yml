@@ -1,0 +1,16 @@
+# UserPromptSubmit 的前置连续性判决。它没有 hook，不会被直接发现为主 Gate。
+version: 1
+name: 会话连续性判定
+group: 本项目保护
+model: typesafe/jev-1.13
+
+questions:
+  relationship:
+    type: choice
+    instructions: >-
+      当前输入是否是对 recent_inputs 中最近一次插件提出的澄清或确认问题的直接、连贯回答？
+      “是”“否”“确认”“继续”等简短答复只有在上文确有对应问题时才算 continuation；
+      否则属于 new_request。
+    criteria:
+      continuation: "当前输入直接回答或延续 recent_inputs 中尚未解决的问题。"
+      new_request: "当前输入独立提出新的任务、问题或无从关联的内容。"

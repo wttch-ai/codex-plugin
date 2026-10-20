@@ -22,6 +22,18 @@ questions:
 hook:
   user_prompt_submit:
     question: plugin_maintenance_only
+    continuity:
+      max_messages: 8
+      decision: conversation-continuity
+      question: relationship
+      routes:
+        continuation:
+          action: skip
+          message: >-
+            JEV 已识别这是对当前对话的连续回答；跳过业务/插件范围重新判定，
+            请结合上文已经确认的边界继续处理。
+        new_request:
+          action: primary
     thresholds:
       allow_at_or_above: 0.80
       uncertain_at_or_above: 0.40

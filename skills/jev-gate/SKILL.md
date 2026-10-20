@@ -42,6 +42,30 @@ JEV 类型。决策文件只定义固定的类型、候选项和提示词；
 7. 一个项目最多只能有一个声明 `hook.user_prompt_submit` 的决策。普通的手动决策可以有
    多个，但不要声明该 Hook。
 
+## 会话连续性路由
+
+`UserPromptSubmit` 内置记录同一项目、同一会话最近的原始用户输入到
+`~/.wttch/jev-history/`。在主决策的 `hook.user_prompt_submit` 中可选声明 `continuity`，
+用另一个已定义的项目 JEV 判断本轮是上文的连续回答还是新请求：
+
+```yaml
+continuity:
+  max_messages: 8
+  decision: conversation-continuity
+  question: relationship
+  routes:
+    continuation:
+      action: skip
+      message: "这是对上文的连续回答；跳过主 Gate，并结合上文继续处理。"
+    new_request:
+      action: primary
+```
+
+连续性决策必须返回 `choice`，其候选值对应 `routes` 的键。路由动作为：`skip`（跳过主
+Gate）、`primary`（继续主 Gate）、`decision`（运行 `decision` 字段引用的另一个已定义
+项目 JEV，并把结果注入当前对话）。`max_messages` 为 1–100。历史按项目与会话隔离，
+文件名不包含原始会话 ID；原始输入会被本机持久化，启用前应取得用户授权。
+
 编排器项目的创建与路由示例位于 `example/orchestrator-routing.yml`。复制后，将示例中的
 `business-code-agent` 替换为该编排器项目实际提供的 Agent 名称。
 

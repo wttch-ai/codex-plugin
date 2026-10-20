@@ -1,0 +1,15 @@
+# 连续性判决示例：复制到 .agents/wttch/jev-decisions/ 后，由主 Gate 的 continuity.decision 引用。
+version: 1
+name: 会话连续性判定
+group: 内置示例
+model: typesafe/jev-1.13
+
+questions:
+  relationship:
+    type: choice
+    instructions: >-
+      当前输入是否直接回答或延续 recent_inputs 中最近一个待确认问题？“是”“否”“确认”
+      等简短答复仅在上文存在对应问题时算 continuation。
+    criteria:
+      continuation: "当前输入与 recent_inputs 中的待确认问题连贯。"
+      new_request: "当前输入是独立的新任务或新问题。"

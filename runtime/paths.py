@@ -13,5 +13,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 # 插件依赖环境独立于 Codex 的版本化插件缓存，升级或重装插件时可以复用。
 RUNTIME_ROOT = Path.home() / ".wttch" / "agent-runtime"
 RUNTIME_VENV = RUNTIME_ROOT / "venv"
+# UserPromptSubmit JEV 的会话连续性记录；内容由用户明确授权保留在本机。
+JEV_HISTORY_ROOT = Path.home() / ".wttch" / "jev-history"
 # 所有插件组件共用按本地日期分割的文件日志目录。
 DEFAULT_LOG_ROOT = Path.home() / ".wttch" / "logs"

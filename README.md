@@ -5,7 +5,7 @@ Wttch 的私人 Codex 插件，用来集中维护可复用的 Skills、生命周
 
 - 主页：<https://wttch.com>
 - 插件名称：`wttch-codex-plugin`
-- 当前版本：`0.1.44-SNOPSHOT-2026-10-19T00-45-16`
+- 当前版本：`0.1.44-SNOPSHOT-2026-10-20T23-04-29`
 - 使用范围：私人插件
 
 ## 快速开始
@@ -244,6 +244,28 @@ Hook 运行时显示固定状态“正在 JEV 判决中…”。Codex 在显示�
 走 `deny`。若需要用户明确确认，应使用 `warn`，并在 `message` 中写入让 LLM 先检查
 当前对话是否已有明确答复、没有才提问的助手指令；这样不会中断当前对话或反复追问。
 `block` 仅保留给必须协议级阻止的场景。
+
+### 会话连续性
+
+UserPromptSubmit 会按项目和会话把最近原始用户输入保存在 `~/.wttch/jev-history/`。主
+Gate 可引用一个已定义的 `choice` 类型 JEV，在每轮先判断当前输入是否延续上文：
+
+```yaml
+continuity:
+  max_messages: 8
+  decision: conversation-continuity
+  question: relationship
+  routes:
+    continuation:
+      action: skip
+      message: "这是对上文的连续回答；跳过主 Gate，并结合上文继续处理。"
+    new_request:
+      action: primary
+```
+
+`skip` 适合“是/否/确认”等对插件刚才提问的回答，避免再做无意义的业务/插件范围判定；
+`primary` 继续执行主 Gate。路由也可使用 `action: decision` 与 `decision: <name>` 运行另
+一个项目 JEV，并将它的结果注入当前对话。原始输入仅保存在本机，配置此功能前应征得用户许可。
 
 JEV 决策示例：
 

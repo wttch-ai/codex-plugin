@@ -17,11 +17,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from wttch_config import load_config, openrouter_api_key
 from hooks import UserPromptSubmitInput, UserPromptSubmitOutput
 from wttch_logging import record_jev_operation
+from jev.history import append_prompt
 
 
 PROJECT_DECISION_ROOT = Path(".agents") / "wttch" / "jev-decisions"
 DEFAULT_ENDPOINT = "https://openrouter.ai/api/alpha/decisions"
 USER_PROMPT_ACTIONS = {"allow", "warn", "block"}
+CONTINUITY_ACTIONS = {"skip", "primary", "decision"}
+DEFAULT_HISTORY_MESSAGES = 8
 
 
 def user_prompt_submit_config(definition: dict) -> dict | None:
@@ -104,6 +107,38 @@ def validate_user_prompt_submit(definition: dict) -> None:
             raise ValueError(
                 f"hook.user_prompt_submit.actions.{branch} 必须包含有效的 action 和非空 message"
             )
+    continuity = routing.get("continuity")
+    if continuity is None:
+        return
+    if not isinstance(continuity, dict):
+        raise ValueError("hook.user_prompt_submit.continuity 必须是对象")
+    if set(continuity) != {"max_messages", "decision", "question", "routes"}:
+        raise ValueError("continuity 必须包含 max_messages、decision、question 和 routes")
+    max_messages = continuity["max_messages"]
+    if isinstance(max_messages, bool) or not isinstance(max_messages, int) or not 1 <= max_messages <= 100:
+        raise ValueError("continuity.max_messages 必须是 1 到 100 的整数")
+    if not isinstance(continuity["decision"], str) or not continuity["decision"].strip():
+        raise ValueError("continuity.decision 必须是非空项目 JEV 名称")
+    if not isinstance(continuity["question"], str) or not continuity["question"].strip():
+        raise ValueError("continuity.question 必须是非空问题名称")
+    routes = continuity["routes"]
+    if not isinstance(routes, dict) or not routes:
+        raise ValueError("continuity.routes 必须是非空对象")
+    for answer, route in routes.items():
+        if not isinstance(answer, str) or not isinstance(route, dict):
+            raise ValueError("continuity.routes 必须以字符串答案映射到对象")
+        allowed = {"action", "message", "decision"}
+        if set(route) - allowed or not isinstance(route.get("action"), str):
+            raise ValueError(f"continuity.routes.{answer} 格式无效")
+        if route["action"] not in CONTINUITY_ACTIONS:
+            raise ValueError(f"continuity.routes.{answer}.action 无效")
+        if "message" in route and (not isinstance(route["message"], str) or not route["message"].strip()):
+            raise ValueError(f"continuity.routes.{answer}.message 必须是非空字符串")
+        if route["action"] == "decision":
+            if not isinstance(route.get("decision"), str) or not route["decision"].strip():
+                raise ValueError(f"continuity.routes.{answer}.decision 必须是非空项目 JEV 名称")
+        elif "decision" in route:
+            raise ValueError(f"continuity.routes.{answer}.decision 仅可用于 decision 动作")
 
 
 def decision_files(cwd: Path | None = None) -> list[Path]:
@@ -299,12 +334,70 @@ def response_for_probability(
     return UserPromptSubmitOutput.block(message)
 
 
+def continuity_choice(response: dict, question: str) -> str:
+    """从连续性 JEV 的 choice 响应中读取路由键。"""
+    answers = response.get("answers")
+    answer = answers.get(question) if isinstance(answers, dict) else None
+    choice = answer.get("choice") if isinstance(answer, dict) else None
+    if not isinstance(choice, str) or not choice:
+        raise ValueError(f"连续性 JEV 未返回问题 {question} 的有效 choice")
+    return choice
+
+
+def prompt_state(prompt: str, recent_inputs: list[str]) -> str:
+    """构造发送给 JEV 的当前输入与同一会话最近输入。"""
+    return json.dumps(
+        {"prompt": prompt, "recent_inputs": recent_inputs}, ensure_ascii=False
+    )
+
+
+def apply_continuity_route(
+    event: UserPromptSubmitInput,
+    routing: dict,
+    recent_inputs: list[str],
+) -> UserPromptSubmitOutput | None:
+    """运行可选连续性判决，并按其 choice 路由本轮 UserPrompt。
+
+    ``skip`` 直接放行主 Gate；``primary`` 由调用方继续执行声明该 Hook 的主判决；
+    ``decision`` 运行指定的项目 JEV，并把其结构化结果作为当前对话上下文注入给模型。
+    所有二级决策都通过 ``resolve`` 限定在项目决策目录内。
+    """
+    continuity = routing.get("continuity")
+    if continuity is None:
+        return None
+    state = prompt_state(event.prompt, recent_inputs)
+    continuity_definition = load_decision(resolve(continuity["decision"], Path(event.cwd)))
+    choice = continuity_choice(
+        request_decision(continuity_definition, state, Path(event.cwd)),
+        continuity["question"],
+    )
+    route = continuity["routes"].get(choice)
+    if not isinstance(route, dict):
+        raise ValueError(f"连续性 JEV 返回了未配置的路由：{choice}")
+    action = route["action"]
+    record_jev_operation(
+        "prompt_jev_continuity",
+        details={"decision": continuity["decision"], "choice": choice, "action": action},
+    )
+    if action == "primary":
+        return None
+    message = route.get("message", f"JEV 连续性判决：{choice}。")
+    if action == "skip":
+        return UserPromptSubmitOutput.warn(message)
+    delegated_definition = load_decision(resolve(route["decision"], Path(event.cwd)))
+    delegated_response = request_decision(delegated_definition, state, Path(event.cwd))
+    return UserPromptSubmitOutput.warn(
+        f"{message}JEV[{delegated_definition.get('name', route['decision'])}] 响应："
+        f"{json.dumps(delegated_response, ensure_ascii=False, sort_keys=True)}"
+    )
+
+
 def evaluate_user_prompt(event: UserPromptSubmitInput) -> UserPromptSubmitOutput | None:
     """对一个已校验的 UserPromptSubmit 实体执行项目 JEV 路由。
 
-    未启用项目决策时返回 ``None``，保持 Hook 静默放行。启用后只把用户提示词包装为
-    Decisions API 的 state，不发送会话记录；日志仅记录问题名、概率、分支和最终决定，
-    不记录提示词正文。
+    未启用项目决策时返回 ``None``，保持 Hook 静默放行。启用后会把当前输入与同会话最近
+    输入写入 ``~/.wttch/jev-history`` 并作为 state 发送给 JEV；可选的连续性决策可跳过
+    主 Gate 或运行另一个已定义的项目 JEV。
     """
     definition = find_user_prompt_decision(Path(event.cwd))
     if definition is None:
@@ -312,9 +405,17 @@ def evaluate_user_prompt(event: UserPromptSubmitInput) -> UserPromptSubmitOutput
     routing = user_prompt_submit_config(definition)
     if routing is None:
         return None
+    continuity = routing.get("continuity")
+    history_limit = continuity["max_messages"] if continuity else DEFAULT_HISTORY_MESSAGES
+    # 以项目路径与会话 ID 共同隔离历史，避免同一会话跨项目时混入上下文。
+    history_scope = f"{Path(event.cwd).resolve()}\0{event.session_id}"
+    recent_inputs = append_prompt(history_scope, event.prompt, history_limit)
+    continuity_result = apply_continuity_route(event, routing, recent_inputs)
+    if continuity_result is not None:
+        return continuity_result
     response = request_decision(
         definition,
-        json.dumps({"prompt": event.prompt}, ensure_ascii=True),
+        prompt_state(event.prompt, recent_inputs),
         Path(event.cwd),
     )
     probability = get_noul_probability(response, routing["question"])

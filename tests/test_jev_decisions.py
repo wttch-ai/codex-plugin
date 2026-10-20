@@ -2,6 +2,7 @@
 
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -27,6 +28,7 @@ from jev.decision import (  # noqa: E402
     validate_user_prompt_submit,
 )
 from jev.main import build_parser  # noqa: E402
+from jev.history import append_prompt, recent_prompts, session_history_path  # noqa: E402
 from hooks import UserPromptSubmitInput  # noqa: E402
 
 
@@ -220,11 +222,86 @@ class JEVDecisionTypeTests(unittest.TestCase):
             with (
                 patch("jev.decision.request_decision", return_value=response) as request,
                 patch("jev.decision.record_jev_operation"),
+                patch.dict(os.environ, {"WTTCH_JEV_HISTORY_DIR": str(root / "history")}),
             ):
                 result = evaluate_user_prompt(event)
             request.assert_called_once()
             self.assertIsNone(result.decision)
             self.assertIn("allow", result.systemMessage)
+
+    def test_history_keeps_recent_raw_prompts_per_session(self) -> None:
+        """内置历史应只保留配置数量的原始输入，并隐藏 session id 的文件名。"""
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            os.environ, {"WTTCH_JEV_HISTORY_DIR": directory}
+        ):
+            self.assertEqual(append_prompt("session-a", "第一条", 2), [])
+            self.assertEqual(append_prompt("session-a", "第二条", 2), ["第一条"])
+            self.assertEqual(append_prompt("session-a", "第三条", 2), ["第一条", "第二条"])
+            self.assertEqual(recent_prompts("session-a", 2), ["第二条", "第三条"])
+            self.assertNotIn("session-a", session_history_path("session-a").name)
+
+    def test_continuation_route_skips_primary_decision(self) -> None:
+        """连续回答命中 skip 时不应重复调用主业务/插件范围判决。"""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            decision_dir = root / ".agents" / "wttch" / "jev-decisions"
+            decision_dir.mkdir(parents=True)
+            (decision_dir / "main.yml").write_text(
+                """version: 1
+name: 主判决
+questions:
+  scope:
+    type: noul
+    instructions: 主请求是否可处理？
+    criteria: {"true": 可处理, "false": 不可处理}
+hook:
+  user_prompt_submit:
+    question: scope
+    continuity:
+      max_messages: 3
+      decision: continuity
+      question: relationship
+      routes:
+        continuation: {action: skip, message: 连续回答，跳过主判决。}
+        new_request: {action: primary}
+    thresholds: {allow_at_or_above: 0.8, uncertain_at_or_above: 0.4}
+    actions:
+      allow: {action: allow, message: 可继续。}
+      uncertain: {action: warn, message: 需要确认。}
+      deny: {action: warn, message: 不可继续。}
+""",
+                encoding="utf-8",
+            )
+            (decision_dir / "continuity.yml").write_text(
+                """version: 1
+name: 连续性
+questions:
+  relationship:
+    type: choice
+    instructions: 是否连续？
+    criteria: {continuation: 是, new_request: 否}
+""",
+                encoding="utf-8",
+            )
+            event = UserPromptSubmitInput(
+                session_id="session",
+                transcript_path=None,
+                cwd=str(root),
+                hook_event_name="UserPromptSubmit",
+                model="test-model",
+                turn_id="turn",
+                prompt="是的",
+            )
+            continuity_response = {"answers": {"relationship": {"choice": "continuation"}}}
+            with (
+                patch("jev.decision.request_decision", return_value=continuity_response) as request,
+                patch("jev.decision.record_jev_operation"),
+                patch.dict(os.environ, {"WTTCH_JEV_HISTORY_DIR": str(root / "history")}),
+            ):
+                result = evaluate_user_prompt(event)
+            request.assert_called_once()
+            self.assertIsNone(result.decision)
+            self.assertIn("连续回答", result.systemMessage)
 
     def test_example_hook_is_not_automatically_enabled(self) -> None:
         """空项目不能因为插件目录内存在示例而启用 UserPromptSubmit 决策。"""
