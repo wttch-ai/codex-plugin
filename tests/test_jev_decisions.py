@@ -1,5 +1,6 @@
 """验证项目 JEV 决策发现、校验、执行和 UserPromptSubmit 路由。"""
 
+import io
 import json
 import sys
 import tempfile
@@ -21,6 +22,7 @@ from jev.decision import (  # noqa: E402
     request_decision,
     response_for_probability,
     resolve,
+    run_user_prompt_submit_hook,
     user_prompt_submit_config,
     validate_user_prompt_submit,
 )
@@ -66,8 +68,8 @@ class JEVDecisionTypeTests(unittest.TestCase):
             "uncertain_at_or_above": 0.40,
         })
         self.assertEqual(routing["actions"]["uncertain"], {
-            "action": "block",
-            "message": "JEV 判断可信度不足，请明确确认后重新提交。",
+            "action": "warn",
+            "message": "JEV 判断可信度不足。助手指令：先检查当前对话中是否已有用户对“是否允许自动处理 此请求？”的明确答复；若有则依照答复继续处理，不要重复提问；若没有，再向用户 提出该问题。在收到明确确认前不要执行请求中的操作。",
         })
 
     def test_orchestrator_routing_example_uses_distinct_warnings(self) -> None:
@@ -103,8 +105,12 @@ class JEVDecisionTypeTests(unittest.TestCase):
         self.assertEqual(branch_for_probability(routing, 0.40), "uncertain")
         self.assertEqual(branch_for_probability(routing, 0.39), "deny")
         self.assertIn("JEV[自动处理判定] 判决结果：allow；noul 可能性：80.0%", response_for_probability(routing, 0.80, "自动处理判定").systemMessage)
-        self.assertEqual(response_for_probability(routing, 0.40, "自动处理判定").decision, "block")
-        self.assertIn("JEV[自动处理判定] 判决结果：deny；noul 可能性：39.0%", response_for_probability(routing, 0.39, "自动处理判定").reason)
+        uncertain = response_for_probability(routing, 0.40, "自动处理判定")
+        denied = response_for_probability(routing, 0.39, "自动处理判定")
+        self.assertIsNone(uncertain.decision)
+        self.assertIsNone(denied.decision)
+        self.assertIn("不要重复提问", uncertain.hookSpecificOutput.additionalContext)
+        self.assertIn("JEV[自动处理判定] 判决结果：deny；noul 可能性：39.0%", denied.systemMessage)
 
     def test_user_prompt_submit_rejects_invalid_noul_response(self) -> None:
         """API 返回的概率必须位于闭区间 0..1，超界值不能参与路由。"""
@@ -224,6 +230,33 @@ class JEVDecisionTypeTests(unittest.TestCase):
         """空项目不能因为插件目录内存在示例而启用 UserPromptSubmit 决策。"""
         with tempfile.TemporaryDirectory() as directory:
             self.assertIsNone(find_user_prompt_decision(Path(directory)))
+
+    def test_user_prompt_hook_error_warns_model_without_blocking_request(self) -> None:
+        """JEV 异常应注入告警上下文，而非阻止用户的原始请求。"""
+        payload = {
+            "session_id": "session",
+            "transcript_path": None,
+            "cwd": str(ROOT),
+            "hook_event_name": "UserPromptSubmit",
+            "model": "test-model",
+            "turn_id": "turn",
+            "prompt": "测试请求",
+        }
+        with (
+            patch("jev.decision.evaluate_user_prompt", side_effect=RuntimeError("TLS failed")),
+            patch("jev.decision.record_jev_operation"),
+            patch("jev.decision.sys.stdin", io.StringIO(json.dumps(payload))),
+            patch("jev.decision.sys.stdout", new_callable=io.StringIO) as stdout,
+        ):
+            self.assertEqual(run_user_prompt_submit_hook(), 0)
+
+        result = json.loads(stdout.getvalue())
+        self.assertNotIn("decision", result)
+        self.assertIn("TLS failed", result["systemMessage"])
+        self.assertIn(
+            "Wttch 插件本轮执行出错",
+            result["hookSpecificOutput"]["additionalContext"],
+        )
 
     def test_examples_are_not_discovered_or_resolved(self) -> None:
         """列表和名称解析都只能访问项目目录，不能回退到插件示例。"""

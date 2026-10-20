@@ -123,8 +123,8 @@ def hook_warning(
         f"{prepare_command()} 以准备依赖。"
     )
     if hook_event == "UserPromptSubmit":
-        # UserPromptSubmit 已强制实体化，确保字段名和 JSON 序列化统一。
-        return UserPromptSubmitOutput.warn(reason)
+        # 让对话继续，并把异常与面向模型的告警指令一同注入当前请求。
+        return UserPromptSubmitOutput.error_warning(reason)
     message = hook_notice(reason)
     if hook_event == "PreToolUse":
         return {

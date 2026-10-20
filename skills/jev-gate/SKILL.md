@@ -35,9 +35,10 @@ JEV 类型。决策文件只定义固定的类型、候选项和提示词；
 5. 用 `allow_at_or_above` 和 `uncertain_at_or_above` 将概率划分为 `allow`、
    `uncertain`、`deny` 三个分支。每个分支分别配置 `action` 和非空 `message`；
    `action` 可取 `allow`、`warn` 或 `block`。
-6. `warn` 只会让请求继续并给当前 Agent 注入上下文，不会自动启动另一个 Agent。需要
-   提示路由时，在消息中写出目标 Agent；需要强制用户改走该 Agent 时使用 `block`；
-   需要真正自动调度时，应实现专用 Hook 适配器。
+6. `warn` 会让请求继续并把 `message` 注入当前 Agent。若需模型先询问用户，应直接在
+   `message` 中写入明确的提示词：先检查当前对话是否已有针对该问题的明确答复；有则
+   依照答复继续、不要重复提问；没有才询问用户，且确认前不要执行相关操作。只有必须
+   协议级禁止继续时才使用 `block`。需要真正自动调度时，应实现专用 Hook 适配器。
 7. 一个项目最多只能有一个声明 `hook.user_prompt_submit` 的决策。普通的手动决策可以有
    多个，但不要声明该 Hook。
 

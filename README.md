@@ -206,7 +206,7 @@ Hook 使用事件 `cwd`，普通 Skill 运行时脚本使用其进程工作目�
 
 对于需要绑定 `UserPromptSubmit` 的 `noul` 决策，可在决策文件顶层添加
 `hook.user_prompt_submit`。该字段引用一个正向的 `noul` 问题（例如“是否可安全自动
-处理”），并在 YAML 中定义概率阈值和三个分支的 `allow`、`warn` 或 `block` 动作。
+处理"），并在 YAML 中定义概率阈值和三个分支的 `allow`、`warn` 或 `block` 动作。
 这类决策还必须提供顶层 `name`，用于在结果提示中标识判决：
 
 `UserPromptSubmit` Hook 只会读取当前项目
@@ -226,19 +226,24 @@ hook:
         action: allow
         message: "JEV 判断该请求可自动处理。"
       uncertain:
-        action: block
-        message: "JEV 判断可信度不足，请明确确认后重新提交。"
+        action: warn
+        message: >-
+          JEV 判断可信度不足。助手指令：先检查当前对话中是否已有用户对是否允许自动处理的
+          明确答复；若有则依照答复继续、不要重复提问；若没有再询问用户，确认前不要执行相关操作。
       deny:
-        action: block
-        message: "JEV 判断该请求不适合自动处理。"
+        action: warn
+        message: >-
+          JEV 判断该请求不适合自动处理。助手指令：先检查当前对话中是否已有用户对下一步处理
+          方式的明确答复；若有则依照答复继续、不要重复提问；若没有再询问用户，确认前不要执行相关操作。
 ```
 
 Hook 运行时显示固定状态“正在 JEV 判决中…”。Codex 在显示该状态时尚未读取项目决策 YAML，
 因此无法在状态文本中动态替换 `name`；完成后会显示 `JEV[自动处理判定] 判决结果…`。
 
 概率达到 `allow_at_or_above` 时走 `allow`；介于两个阈值之间走 `uncertain`；其余
-走 `deny`。若需要用户明确确认，中间分支应使用 `block`，而不是会继续当前请求的
-`warn`。
+走 `deny`。若需要用户明确确认，应使用 `warn`，并在 `message` 中写入让 LLM 先检查
+当前对话是否已有明确答复、没有才提问的助手指令；这样不会中断当前对话或反复追问。
+`block` 仅保留给必须协议级阻止的场景。
 
 JEV 决策示例：
 

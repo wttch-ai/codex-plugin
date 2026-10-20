@@ -284,8 +284,9 @@ def response_for_probability(
     """把概率分支配置转换为强类型 UserPromptSubmit 输出。
 
     ``allow`` 和 ``warn`` 都让请求继续，但仍通过额外上下文公开 JEV 分支、概率与项目
-    消息；``block`` 才产生协议级阻止。这样 YAML 动作控制执行效果，分支名称只表达
-    分类结果，不会被误当作固定权限决定。
+    消息。若需模型询问用户，调用方应在 YAML 的 ``message`` 中写入明确的助手指令；只有
+    ``block`` 才产生协议级阻止。这样 YAML 动作控制执行效果，分支名称只表达分类结果，
+    不会被误当作固定权限决定。
     """
     branch = branch_for_probability(routing, probability)
     output = routing["actions"][branch]
@@ -334,13 +335,16 @@ def evaluate_user_prompt(event: UserPromptSubmitInput) -> UserPromptSubmitOutput
 def run_user_prompt_submit_hook() -> int:
     """从 stdin 执行 UserPromptSubmit 决策，并向 stdout 写协议实体。
 
-    输入解析、项目配置、网络或响应格式中的任何异常都采用失败关闭策略，转换成 block
-    响应并记录不含敏感值的错误状态。若项目没有启用决策则不输出任何内容，表示放行。
+    输入解析、项目配置、网络或响应格式中的任何异常都让本轮请求继续，但会注入异常
+    上下文，要求模型在最终回复中警告用户；错误状态不含敏感值。若项目没有启用决策
+    则不输出任何内容，表示放行。
     """
     try:
         result = evaluate_user_prompt(UserPromptSubmitInput.load_json(sys.stdin))
     except Exception as exc:
-        result = UserPromptSubmitOutput.block(f"UserPrompt JEV Gate 未执行：{exc}")
+        result = UserPromptSubmitOutput.error_warning(
+            f"UserPrompt JEV Gate 未执行：{exc}。本轮请求将继续。"
+        )
         record_jev_operation("prompt_jev_decision", result="error")
     if result is not None:
         print(result.dump_json())

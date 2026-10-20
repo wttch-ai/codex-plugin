@@ -87,9 +87,8 @@ def main() -> int:
             result = evaluate(event, settings)
     except Exception as exc:
         # 配置错误不阻止用户修复或创建配置；向当前会话注入可见提示即可。
-        result = UserPromptSubmitOutput.warn(
+        result = UserPromptSubmitOutput.error_warning(
             f"模型 Gate 已忽略：{exc}。本轮请求将继续。"
-            "助手指令：正常完成用户当前请求；在最终回复中简要指出配置问题及修复路径。"
         )
         record_operation("model_gate", result="error")
     else:
