@@ -178,6 +178,14 @@ Skill 与 Hook 入口使用跨平台启动器检查本机 Python：macOS/Linux �
 python runtime/runner.py --mode prepare
 ```
 
+每次启动器运行都会把 stdout、stderr、Python 异常堆栈和退出状态追加到
+`~/.wttch/bootstrap.out`，并附带会话分隔、时间、PID、解释器、工作目录、退出码和耗时，
+便于定位 Hook 启动问题。调试详细日志默认开启，可通过将 `runtime/bootstrap` 中的
+`bootstrap_debug=1` 改为 `0`，或将 `runtime/bootstrap.ps1` 中的 `$BootstrapDebug = $true`
+改为 `$false` 来关闭。调试日志额外记录操作系统、解释器版本和逐个启动参数。
+该文件可能包含用户项目路径和 Hook 输出，
+请按本机数据保留要求清理。
+
 强制重装时运行 `python runtime/runner.py --mode reinstall`。准备入口使用本地
 Python 的 `venv` 模块创建共享环境，再调用该虚拟环境自己的 `python -m pip` 安装
 `requirements.txt`，不会调用全局 `pip`。

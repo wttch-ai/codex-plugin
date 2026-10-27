@@ -5,12 +5,29 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# Set to 1 to include extra environment and argument details in bootstrap.out.
+bootstrap_debug=1
+
+bootstrap_log=
+if [ -n "${HOME:-}" ]; then
+    bootstrap_log="$HOME/.wttch/bootstrap.out"
+    if ! mkdir -p "$HOME/.wttch" 2>/dev/null; then
+        bootstrap_log=/dev/null
+    fi
+else
+    bootstrap_log=/dev/null
+fi
+
+log_line() {
+    printf '%s\n' "$*" >>"$bootstrap_log" 2>/dev/null || bootstrap_log=/dev/null
+}
+
 python_command=
 
 if command -v python3 >/dev/null 2>&1; then
-    python_command=python3
+    python_command=$(command -v python3)
 elif command -v python >/dev/null 2>&1; then
-    python_command=python
+    python_command=$(command -v python)
 fi
 
 emit_warning() {
@@ -26,12 +43,37 @@ emit_warning() {
     done
 
     if [ -n "$hook_event" ]; then
-        printf '{"hookSpecificOutput":{"hookEventName":"%s","additionalContext":"%s"}}\n' "$hook_event" "$message"
+        printf '{"hookSpecificOutput":{"hookEventName":"%s","additionalContext":"%s"}}\n' "$hook_event" "$message" |
+            tee -a "$bootstrap_log"
     else
-        printf '%s\n' "WARNING: $message" >&2
+        printf '%s\n' "WARNING: $message" | tee -a "$bootstrap_log" >&2
     fi
+    warning_finished=$(date '+%Y-%m-%dT%H:%M:%S%z')
+    warning_finished_epoch=$(date +%s)
+    log_line ""
+    log_line "event=process_exit status=0 finished=$warning_finished elapsed_seconds=$((warning_finished_epoch - run_started_epoch))"
     exit 0
 }
+
+run_started=$(date '+%Y-%m-%dT%H:%M:%S%z')
+run_started_epoch=$(date +%s)
+run_id=$$
+log_line ""
+log_line "=== Wttch bootstrap start $run_started pid=$run_id ==="
+log_line "event=configuration debug=$bootstrap_debug cwd=$(pwd) home=${HOME:-} script=$0 arguments=$#"
+log_line "event=python selected=${python_command:-not_found}"
+if [ "$bootstrap_debug" = "1" ]; then
+    log_line "debug=1 os=$(uname -s 2>/dev/null || true) release=$(uname -r 2>/dev/null || true)"
+    if [ -n "$python_command" ]; then
+        python_version=$("$python_command" --version 2>&1 || true)
+        log_line "debug=1 python_version=$python_version"
+    fi
+    argument_index=0
+    for argument in "$@"; do
+        argument_index=$((argument_index + 1))
+        log_line "debug=1 argument_$argument_index=$argument"
+    done
+fi
 
 if [ -z "$python_command" ]; then
     emit_warning "Wttch \u63d2\u4ef6\u672a\u8fd0\u884c\uff1a\u672c\u673a\u672a\u5b89\u88c5 Python\uff0c\u6216 Python \u672a\u52a0\u5165 PATH\u3002\u8bf7\u63d0\u793a\u7528\u6237\u5b89\u88c5 Python \u5e76\u5c06\u5176\u52a0\u5165 PATH \u540e\u91cd\u8bd5\u3002"
@@ -43,4 +85,44 @@ if false; then
     fi
 fi
 
-exec "$python_command" "$script_dir/runner.py" "$@"
+run_with_log() {
+    captured_stdout_bytes=0
+    captured_stderr_bytes=0
+    if ! temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/wttch-bootstrap.XXXXXX"); then
+        log_line "event=error stage=create_temp_dir"
+        return 1
+    fi
+    stdout_pipe="$temp_dir/stdout"
+    stderr_pipe="$temp_dir/stderr"
+    if ! mkfifo "$stdout_pipe" "$stderr_pipe"; then
+        log_line "event=error stage=create_output_pipe temp_dir=$temp_dir"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+
+    tee -a "$bootstrap_log" <"$stdout_pipe" | tee "$temp_dir/stdout.copy" &
+    stdout_pid=$!
+    tee -a "$bootstrap_log" <"$stderr_pipe" | tee "$temp_dir/stderr.copy" >&2 &
+    stderr_pid=$!
+
+    status=0
+    log_line "event=process_start pid=$run_id python=$python_command target=$script_dir/runner.py"
+    "$@" >"$stdout_pipe" 2>"$stderr_pipe" || status=$?
+    wait "$stdout_pid" || true
+    wait "$stderr_pid" || true
+    captured_stdout_bytes=$(wc -c <"$temp_dir/stdout.copy" | tr -d '[:space:]')
+    captured_stderr_bytes=$(wc -c <"$temp_dir/stderr.copy" | tr -d '[:space:]')
+    rm -rf "$temp_dir"
+    return "$status"
+}
+
+status=0
+run_with_log "$python_command" "$script_dir/runner.py" "$@" || status=$?
+run_finished=$(date '+%Y-%m-%dT%H:%M:%S%z')
+run_finished_epoch=$(date +%s)
+log_line ""
+log_line "event=process_exit status=$status finished=$run_finished elapsed_seconds=$((run_finished_epoch - run_started_epoch)) stdout_bytes=$captured_stdout_bytes stderr_bytes=$captured_stderr_bytes"
+if [ "$bootstrap_debug" = "1" ]; then
+    log_line "debug=1 exit_code=$status"
+fi
+exit "$status"

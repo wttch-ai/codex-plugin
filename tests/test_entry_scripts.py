@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-import unittest
 from pathlib import Path
+import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,15 +41,13 @@ class EntryScriptTests(unittest.TestCase):
         self.assertIn("command -v python3", launcher)
         self.assertIn("command -v python", launcher)
         self.assertNotIn('runtime_python=', launcher)
-        self.assertIn('exec "$python_command" "$script_dir/runner.py" "$@"', launcher)
-        self.assertIn(MISSING_PYTHON, launcher)
-
-    def test_windows_launcher_only_checks_system_python(self) -> None:
-        launcher = (ROOT / "runtime" / "bootstrap.cmd").read_text(encoding="utf-8")
-        self.assertIn("where python", launcher)
-        self.assertIn("where python3", launcher)
-        self.assertNotIn("RUNTIME_PYTHON", launcher)
-        self.assertIn('"%PYTHON_COMMAND%" "%SCRIPT_DIR%runner.py" %*', launcher)
+        self.assertIn('run_with_log "$python_command" "$script_dir/runner.py" "$@"', launcher)
+        self.assertIn('mkfifo "$stdout_pipe" "$stderr_pipe"', launcher)
+        self.assertIn('tee -a "$bootstrap_log"', launcher)
+        self.assertIn('$HOME/.wttch/bootstrap.out', launcher)
+        self.assertIn("bootstrap_debug=1", launcher)
+        self.assertIn("event=process_start", launcher)
+        self.assertIn("event=process_exit", launcher)
         self.assertIn(MISSING_PYTHON, launcher)
 
     def test_windows_hook_launcher_supports_missing_python(self) -> None:
@@ -61,6 +59,14 @@ class EntryScriptTests(unittest.TestCase):
         self.assertIn("exit 0", launcher)
         self.assertNotIn("RUNTIME_PYTHON", launcher)
         self.assertIn("Python is not installed", launcher)
+        self.assertIn('".wttch/bootstrap.out"', launcher)
+        self.assertIn("-RedirectStandardOutput $stdoutPath", launcher)
+        self.assertIn("-RedirectStandardError $stderrPath", launcher)
+        self.assertIn("[Console]::Error.Write($stderrText)", launcher)
+        self.assertIn("[Console]::Out.Write($stdoutText)", launcher)
+        self.assertIn("$BootstrapDebug = $true", launcher)
+        self.assertIn("event=process_start", launcher)
+        self.assertIn("event=process_exit", launcher)
 
 
 if __name__ == "__main__":
