@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# macOS/Linux hook launcher. Windows resolves the sibling entry.cmd through
+# macOS/Linux hook launcher. Windows resolves the sibling bootstrap.cmd through
 # PATHEXT when hooks invoke this extensionless command name.
 
 set -eu

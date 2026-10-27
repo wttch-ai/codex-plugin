@@ -36,6 +36,12 @@ class UserPromptSubmitEntityTests(unittest.TestCase):
         self.assertEqual(event.prompt, "test prompt")
         self.assertFalse(hasattr(event, "future_host_field"))
 
+    def test_input_allows_host_without_turn_id(self) -> None:
+        payload = self.input_payload()
+        del payload["turn_id"]
+        event = UserPromptSubmitInput.from_dict(payload)
+        self.assertEqual(event.turn_id, "")
+
     def test_input_rejects_other_hook_events(self) -> None:
         """其他 Hook 事件不得误入 UserPromptSubmit 处理链。"""
         payload = self.input_payload()

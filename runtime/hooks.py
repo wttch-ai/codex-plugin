@@ -76,12 +76,13 @@ class UserPromptSubmitInput(CommonInput):
             "session_id": self.session_id,
             "cwd": self.cwd,
             "model": self.model,
-            "turn_id": self.turn_id,
             "prompt": self.prompt,
         }
         for name, value in required.items():
             if not isinstance(value, str):
                 raise TypeError(f"{name} must be a string")
+        if not isinstance(self.turn_id, str):
+            raise TypeError("turn_id must be a string")
         if self.hook_event_name != "UserPromptSubmit":
             raise ValueError("hook_event_name must be UserPromptSubmit")
         if self.transcript_path is not None and not isinstance(self.transcript_path, str):
@@ -94,7 +95,10 @@ class UserPromptSubmitInput(CommonInput):
         只忽略未知字段，不为缺失字段提供默认值；必填字段缺失仍由 dataclass 构造器报错。
         """
         allowed = {field.name for field in fields(cls)}
-        return cls(**{key: value for key, value in raw.items() if key in allowed})
+        payload = {key: value for key, value in raw.items() if key in allowed}
+        # turn_id 是 Codex 的可选扩展；部分宿主版本不会在 Hook 事件中提供它。
+        payload.setdefault("turn_id", "")
+        return cls(**payload)
 
     @classmethod
     def load_json(cls, stream: TextIO) -> "UserPromptSubmitInput":

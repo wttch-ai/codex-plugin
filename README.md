@@ -165,8 +165,10 @@ Agent Plugins 格式解析，导致 `.codex-plugin/plugin.json` 中的 Hook 声�
 ## Python 运行时维护
 
 Skill 与 Hook 入口使用跨平台启动器检查本机 Python：macOS/Linux 使用
-`runtime/entry` shell 脚本，Windows 使用 `runtime/entry.cmd`。启动器优先寻找
-`python3`，再寻找 `python`；若两者都不在 PATH 中，Hook 会返回中文的非阻断警告，要求 LLM
+`runtime/bootstrap` shell 脚本。Hook 清单通过 `command` 调用 POSIX 入口；Windows 的
+`commandWindows` 使用系统自带的 `powershell.exe` 启动 `runtime/bootstrap.ps1`，避免批处理
+包装层干扰 Hook 的 stdin/stdout 管道。PowerShell 入口依次寻找 `python`、`python3` 和 `py -3`；
+都不可用时，Hook 会返回非阻断警告，要求 LLM
 提示用户安装 Python 并加入 PATH。找到解释器后，启动器会先检查固定的用户级虚拟环境
 `~/.wttch/agent-runtime/venv`；环境缺失时由 shell/cmd 脚本调用 runner 的 `prepare` 模式
 创建 venv 并安装依赖，准备失败也会返回中文提示。环境准备完成后才运行目标。该环境不位于

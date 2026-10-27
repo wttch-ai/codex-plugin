@@ -18,7 +18,7 @@ from hooks import UserPromptSubmitInput, UserPromptSubmitOutput
 from settings import load_settings
 from wttch_config import CONFIG_PATH
 # 模型 Gate 记录最终决策，便于查询被阻止、警告或放行的请求数量。
-from wttch_logging import record_operation
+from wttch_logging import record_operation, record_runtime
 
 
 def normalize_model(value: str) -> str:
@@ -87,10 +87,15 @@ def main() -> int:
             result = evaluate(event, settings)
     except Exception as exc:
         # 配置错误不阻止用户修复或创建配置；向当前会话注入可见提示即可。
+        record_runtime(f"model_gate 失败：{type(exc).__name__}: {exc}")
         result = UserPromptSubmitOutput.error_warning(
             f"模型 Gate 已忽略：{exc}。本轮请求将继续。"
         )
-        record_operation("model_gate", result="error")
+        record_operation(
+            "model_gate",
+            result="error",
+            details={"error_type": type(exc).__name__},
+        )
     else:
         # result 为 None 代表没有命中限制，在日志中明确记为 allow。
         record_operation(
