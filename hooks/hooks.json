@@ -6,13 +6,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/runtime/runner.py\" --mode run --hook-event UserPromptSubmit \"${PLUGIN_ROOT}/runtime/model_gate.py\"",
+            "command": "\"${PLUGIN_ROOT}/runtime/entry\" --mode run --hook-event UserPromptSubmit \"${PLUGIN_ROOT}/runtime/model_gate.py\"",
             "statusMessage": "检查模型 Gate",
             "timeout": 30
           },
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/runtime/runner.py\" --mode run --hook-event UserPromptSubmit \"${PLUGIN_ROOT}/runtime/jev/main.py\" hook user-prompt-submit",
+            "command": "\"${PLUGIN_ROOT}/runtime/entry\" --mode run --hook-event UserPromptSubmit \"${PLUGIN_ROOT}/runtime/jev/main.py\" hook user-prompt-submit",
             "statusMessage": "正在 JEV 判决中…",
             "timeout": 30
           }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/runtime/runner.py\" --mode run --hook-event PreToolUse \"${PLUGIN_ROOT}/runtime/forbidden_server.py\"",
+            "command": "\"${PLUGIN_ROOT}/runtime/entry\" --mode run --hook-event PreToolUse \"${PLUGIN_ROOT}/runtime/forbidden_server.py\"",
             "timeout": 30
           }
         ]

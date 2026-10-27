@@ -147,7 +147,7 @@ def run_target(target: str, arguments: Sequence[str], hook_event: str | None = N
         runtime_python = runtime_python_path()
         # 首次由本地 Python 启动时转交给共享环境；环境内再次执行时直接运行目标。
         if Path(sys.prefix).resolve() != RUNTIME_VENV.resolve():
-            if not runtime_python.is_file():
+            if not runtime_python.is_file() and prepare_runtime() != 0:
                 raise FileNotFoundError(f"未找到插件运行环境 {runtime_python}")
             command = [
                 str(runtime_python),

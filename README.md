@@ -164,9 +164,13 @@ Agent Plugins 格式解析，导致 `.codex-plugin/plugin.json` 中的 Hook 声�
 
 ## Python 运行时维护
 
-Skill 与 Hook 入口使用本地 `python` 启动统一 runner，实际插件功能运行在固定的用户级
-虚拟环境 `~/.wttch/agent-runtime/venv`。该环境不位于版本化插件缓存中，因此插件升级
-或重新安装时不会丢失。启用前请主动同步环境：
+Skill 与 Hook 入口使用跨平台启动器检查本机 Python：macOS/Linux 使用
+`runtime/entry` shell 脚本，Windows 使用 `runtime/entry.cmd`。启动器优先寻找
+`python3`，再寻找 `python`；若两者都不在 PATH 中，Hook 会返回中文的非阻断警告，要求 LLM
+提示用户安装 Python 并加入 PATH。找到解释器后，启动器会先检查固定的用户级虚拟环境
+`~/.wttch/agent-runtime/venv`；环境缺失时由 shell/cmd 脚本调用 runner 的 `prepare` 模式
+创建 venv 并安装依赖，准备失败也会返回中文提示。环境准备完成后才运行目标。该环境不位于
+版本化插件缓存中，因此插件升级或重新安装时不会丢失。启用前也可主动同步环境：
 
 ```bash
 python runtime/runner.py --mode prepare
